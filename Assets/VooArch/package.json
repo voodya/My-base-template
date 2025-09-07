@@ -1,0 +1,15 @@
+{
+  "name": "com.voodya.vooarch.vcontainer",
+  "displayName": "VooArch",
+  "author": {
+    "name": "Voodya",
+    "url": "https://voodyadev.online/"
+  },
+  "version": "0.1.0",
+  "unity": "2018.4",
+  "description": "Arch template",
+  "keywords": [ "async/await", "async", "Task", "UniTask" ],
+  "license": "MIT",
+  "category": "arch",
+  "dependencies": {}
+}

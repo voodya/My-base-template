@@ -1,0 +1,16 @@
+{
+    "name": "Voodya.Core.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:5583e5ac4cdbcb540b223f6b04aa1e48"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

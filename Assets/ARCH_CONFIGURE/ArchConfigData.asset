@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc7cb642cac26a9458d74ccb2c2057ee, type: 3}
+  m_Name: ArchConfigData
+  m_EditorClassIdentifier: 
+  _serviceInstallers:
+    _data:
+    - Key: ApplicationScopesInstaller
+      Value: {fileID: 11400000, guid: c2908273042897042b2c7405665f2ef0, type: 2}
+    - Key: ContainerHolderInstaller
+      Value: {fileID: 11400000, guid: f0dff896cf07bde4dbcaa748d3be18a7, type: 2}
+    - Key: LoadingPanelInstaller
+      Value: {fileID: 11400000, guid: b3f7ab3fd7a50234199247df8c643c83, type: 2}
+    - Key: ScenesManagerSO
+      Value: {fileID: 11400000, guid: 4c53c77afe3361e41bcc8ac0bfd1124d, type: 2}
+  _stringsData:
+    _data:
+    - Key: BootstrapEntryPoint
+      Value:
+      - ApplicationScopesService
+      - ContainerHolderService
+      - LoadingPanelService
+      - ScenesManagerService
+    - Key: MenuEntryPoint
+      Value: []
+    - Key: All installers
+      Value: []
+  _compositeInstallers:
+    _data:
+    - Key: BootstrapEntryPoint
+      Value: {fileID: 11400000, guid: 05cc615c186e62148b788901b838f1aa, type: 2}
+    - Key: MenuEntryPoint
+      Value: {fileID: 11400000, guid: 60a32a8780db4114a93fca270acf8f1c, type: 2}
