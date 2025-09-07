@@ -40,3 +40,5 @@ MonoBehaviour:
       Value: {fileID: 11400000, guid: 05cc615c186e62148b788901b838f1aa, type: 2}
     - Key: MenuEntryPoint
       Value: {fileID: 11400000, guid: 60a32a8780db4114a93fca270acf8f1c, type: 2}
+    - Key: MenuEntryPointExample
+      Value: {fileID: 11400000, guid: af63d3458845b454d9f6e4448a9df2ba, type: 2}

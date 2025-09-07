@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
-using Voodya.Core;
 
 #if HAS_VOODYA
+using Voodya.Core;
 using Cysharp.Threading.Tasks;
 using VContainer;
 #endif
