@@ -1,10 +1,10 @@
-using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
 using UniRx;
 using UnityEngine;
-
 #if HAS_VOODYA  
+using Cysharp.Threading.Tasks;
+
 namespace Voodya.Core
 {
     [RequireComponent(typeof(CanvasGroup))]

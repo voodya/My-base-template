@@ -1,5 +1,7 @@
 using UnityEngine;
+#if HAS_VOODYA
 using VContainer;
+#endif
 
 #if HAS_VOODYA  
 namespace Voodya.Core

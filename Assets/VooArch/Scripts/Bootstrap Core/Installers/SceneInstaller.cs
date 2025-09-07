@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if HAS_VOODYA
 using VContainer;
 using VContainer.Unity;
+#endif
 
 #if HAS_VOODYA  
 namespace Voodya.Core

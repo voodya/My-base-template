@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if HAS_VOODYA
 using VContainer;
+#endif
 
-#if HAS_VOODYA  
+#if HAS_VOODYA
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "Composite installer", menuName = "SO/Composite Installer")]

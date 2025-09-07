@@ -1,7 +1,7 @@
+#if HAS_VOODYA
 using Cysharp.Threading.Tasks;
 using VContainer;
 
-#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface ILoadingPanelService : IBootableAsync

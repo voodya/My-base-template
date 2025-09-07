@@ -1,13 +1,13 @@
-using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using UniRx;
 using UnityEngine;
+#if HAS_VOODYA
+using Cysharp.Threading.Tasks;
 using VContainer;
 using VContainer.Unity;
-
-#if HAS_VOODYA  
+ 
 namespace Voodya.Core
 {
     public abstract class ABaseEntryPoint : IAsyncStartable, IDisposable

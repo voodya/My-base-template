@@ -1,10 +1,10 @@
-using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using System;
 using System.Threading;
 using UnityEngine;
-
 #if HAS_VOODYA  
+using Cysharp.Threading.Tasks;
+
 namespace Voodya.Core
 {
     public abstract class ABaseUIAnimation : ScriptableObject

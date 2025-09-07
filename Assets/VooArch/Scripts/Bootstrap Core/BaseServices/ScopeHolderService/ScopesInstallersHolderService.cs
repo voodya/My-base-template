@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+#if HAS_VOODYA
 using VContainer;
+#endif
 
-#if HAS_VOODYA  
+#if HAS_VOODYA
 namespace Voodya.Core
 {
     public interface IScopesHolderService

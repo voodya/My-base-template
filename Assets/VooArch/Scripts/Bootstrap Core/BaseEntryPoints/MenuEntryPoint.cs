@@ -1,11 +1,12 @@
-using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
-
+#if HAS_VOODYA
+using Cysharp.Threading.Tasks;
+#endif
 using System.Threading;
 using UniRx;
 using UnityEngine;
 
-#if HAS_VOODYA  
+#if HAS_VOODYA
 namespace Voodya.Core
 {
     public class MenuEntryPoint : ABaseEntryPoint

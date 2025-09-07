@@ -46,8 +46,6 @@ public static class VooResolver
                     Debug.LogError("UniTask exist");
 
                 File.WriteAllText(manifestPath, JsonConvert.SerializeObject(dep));
-                // You can then parse the JSON content using a library like Newtonsoft.Json
-                // or Unity's JsonUtility if the structure is simple.
             }
             catch (System.Exception e)
             {

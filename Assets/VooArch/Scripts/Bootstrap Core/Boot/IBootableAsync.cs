@@ -1,6 +1,6 @@
+#if HAS_VOODYA  
 using Cysharp.Threading.Tasks;
 
-#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface IBootableAsync
