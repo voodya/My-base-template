@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "LoadingPanelInstaller", menuName = "Scriptable Objects/LoadingPanelInstaller")]
@@ -13,4 +14,4 @@ namespace Voodya.Core
     }
 }
 
-
+#endif

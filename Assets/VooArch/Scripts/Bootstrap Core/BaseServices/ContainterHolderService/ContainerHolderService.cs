@@ -1,5 +1,6 @@
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface IContainerHolder
@@ -32,3 +33,4 @@ namespace Voodya.Core
 
 }
 
+#endif

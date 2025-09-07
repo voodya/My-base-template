@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 
+#if HAS_VOODYA 
 namespace Voodya.Core
 {
     public class LoadingScene : ABaseScene
@@ -15,3 +16,4 @@ namespace Voodya.Core
     }
 
 }
+#endif

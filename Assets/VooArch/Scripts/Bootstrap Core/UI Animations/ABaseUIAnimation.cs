@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public abstract class ABaseUIAnimation : ScriptableObject
@@ -52,3 +53,4 @@ namespace Voodya.Core
 }
 
 
+#endif

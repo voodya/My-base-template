@@ -7,7 +7,9 @@ using Unity.Plastic.Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
+#if HAS_VOODYA
 using Voodya.Core;
+#endif
 using Module = UnityEditor.EditorGUILayout;
 #if !HAS_VOODYA
 [InitializeOnLoad]

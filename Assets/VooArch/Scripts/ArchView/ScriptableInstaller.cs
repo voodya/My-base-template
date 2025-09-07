@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public abstract class ScriptableInstaller : ScriptableObject
@@ -10,3 +11,4 @@ namespace Voodya.Core
 
 }
 
+#endif

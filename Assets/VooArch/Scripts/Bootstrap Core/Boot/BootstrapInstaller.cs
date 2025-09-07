@@ -2,6 +2,7 @@ using UnityEngine.SceneManagement;
 using VContainer;
 using VContainer.Unity;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public class BootstrapInstaller : SceneInstaller
@@ -15,3 +16,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

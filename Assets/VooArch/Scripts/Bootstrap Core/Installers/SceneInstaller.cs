@@ -3,6 +3,7 @@ using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public class SceneInstaller : LifetimeScope
@@ -20,3 +21,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

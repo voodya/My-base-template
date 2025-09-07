@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface IApplicationScopesService
@@ -52,3 +53,4 @@ namespace Voodya.Core
 
 }
 
+#endif

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [System.Serializable]
@@ -159,3 +160,4 @@ namespace Voodya.Core
 
 
 
+#endif

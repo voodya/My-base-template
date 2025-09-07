@@ -1,6 +1,7 @@
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "ApplicationScopesInstaller", menuName = "Scriptable Objects/ApplicationScopesInstaller")]
@@ -14,3 +15,4 @@ namespace Voodya.Core
 }
 
 
+#endif

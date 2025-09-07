@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface IScopesHolderService
@@ -37,3 +38,4 @@ namespace Voodya.Core
 
 
 
+#endif

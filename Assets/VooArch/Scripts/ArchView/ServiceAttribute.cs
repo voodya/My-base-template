@@ -1,5 +1,6 @@
 using System;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
 
@@ -24,3 +25,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

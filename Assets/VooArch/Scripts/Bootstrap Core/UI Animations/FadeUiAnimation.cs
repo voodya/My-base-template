@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "FadeUiAnimation", menuName = "SO/Animations/Fade")]
@@ -70,3 +71,4 @@ namespace Voodya.Core
 }
 
 
+#endif

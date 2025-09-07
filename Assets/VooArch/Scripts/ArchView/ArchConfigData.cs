@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA 
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "ArchConfigData", menuName = "Scriptable Objects/ArchConfigData")]
@@ -41,3 +42,4 @@ namespace Voodya.Core
 }
 
 
+#endif

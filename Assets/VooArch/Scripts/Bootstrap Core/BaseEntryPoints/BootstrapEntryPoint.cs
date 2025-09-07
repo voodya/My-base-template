@@ -5,6 +5,7 @@ using System.Threading;
 using UnityEngine;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public class BootstrapEntryPoint : ABaseEntryPoint
@@ -51,3 +52,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

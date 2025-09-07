@@ -7,6 +7,7 @@ using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public abstract class ABaseEntryPoint : IAsyncStartable, IDisposable
@@ -50,3 +51,4 @@ namespace Voodya.Core
 
 }
 
+#endif

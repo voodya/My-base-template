@@ -8,6 +8,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public interface ISceneManager
@@ -171,3 +172,4 @@ namespace Voodya.Core
 
 }
 
+#endif

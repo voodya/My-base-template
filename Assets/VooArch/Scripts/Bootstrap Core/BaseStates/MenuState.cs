@@ -1,5 +1,6 @@
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public class MenuState : DefaultState<MenuEntryPoint>
@@ -11,3 +12,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

@@ -4,6 +4,8 @@ using System;
 using System.Threading;
 using UnityEngine;
 
+#if HAS_VOODYA  
+
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "SlideUiAnimation", menuName = "SO/Animations/Slide")]
@@ -42,3 +44,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

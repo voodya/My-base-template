@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using VContainer;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [CreateAssetMenu(fileName = "ScenesManagerSO", menuName = "SO/Scene Manager")]
@@ -21,3 +22,4 @@ namespace Voodya.Core
 }
 
 
+#endif

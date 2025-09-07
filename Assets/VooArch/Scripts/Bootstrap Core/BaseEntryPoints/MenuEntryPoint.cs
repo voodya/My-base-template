@@ -5,6 +5,7 @@ using System.Threading;
 using UniRx;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public class MenuEntryPoint : ABaseEntryPoint
@@ -36,3 +37,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

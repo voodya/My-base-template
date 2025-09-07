@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public static class TimeValidator
@@ -26,3 +27,4 @@ namespace Voodya.Core
 }
 
 
+#endif

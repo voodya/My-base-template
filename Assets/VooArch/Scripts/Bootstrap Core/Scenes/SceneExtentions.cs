@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     public static class SceneExtentions
@@ -34,3 +35,4 @@ namespace Voodya.Core
     }
 }
 
+#endif

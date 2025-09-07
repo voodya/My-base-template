@@ -4,6 +4,7 @@ using System.Threading;
 using UniRx;
 using UnityEngine;
 
+#if HAS_VOODYA  
 namespace Voodya.Core
 {
     [RequireComponent(typeof(CanvasGroup))]
@@ -84,3 +85,4 @@ namespace Voodya.Core
 }
 
 
+#endif
