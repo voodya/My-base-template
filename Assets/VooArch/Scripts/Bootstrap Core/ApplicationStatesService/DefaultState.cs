@@ -4,8 +4,6 @@ using UnityEngine;
 #if HAS_VOODYA
 using Cysharp.Threading.Tasks;
 using VContainer;
-#endif
-#if HAS_VOODYA
 using VContainer.Unity;
 #endif
 

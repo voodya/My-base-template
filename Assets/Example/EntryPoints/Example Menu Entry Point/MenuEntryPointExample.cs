@@ -3,18 +3,17 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 #endif
 using System.Threading;
-using UniRx;
 using UnityEngine;
 
 #if HAS_VOODYA
 namespace Voodya.Core
 {
-    public class MenuEntryPoint : ABaseEntryPoint
+    public class MenuEntryPointExample : ABaseEntryPoint
     {
         private ISceneManager _sceneManager;
         private IApplicationScopesService _applicationScopesService;
 
-        public MenuEntryPoint(
+        public MenuEntryPointExample(
             ILoadingPanelService loadingPanelService,
             IEnumerable<IBootableAsync> bootableAsyncs,
             ISceneManager sceneManager,
@@ -27,12 +26,13 @@ namespace Voodya.Core
 
         public override async UniTask StartAsync(CancellationToken cancellation = default)
         {
-            Debug.LogError("Load MenuEntryPoint");
+            Debug.LogError("Load Example State");
             _loadingPanelService.Show();
             await base.StartAsync(cancellation);
+            _loadingPanelService.PrintMessage("Voodya arch example!");
             //await _sceneManager.GetScene<MenuScene>();
 
-            _loadingPanelService.Hide();
+            //_loadingPanelService.Hide();
         }
 
     }
