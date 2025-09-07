@@ -552,6 +552,9 @@ PlayerSettings:
   - serializedVersion: 3
     m_BuildTarget: Android
     m_Formats: 03000000
+  - serializedVersion: 3
+    m_BuildTarget: WebGL
+    m_Formats: 05000000
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
   actionOnDotNetUnhandledException: 1
@@ -818,23 +821,23 @@ PlayerSettings:
   webGLCloseOnQuit: 0
   webWasm2023: 0
   scriptingDefineSymbols:
-    Android: DOTWEEN
-    EmbeddedLinux: DOTWEEN
-    GameCoreScarlett: DOTWEEN
-    GameCoreXboxOne: DOTWEEN
-    LinuxHeadlessSimulation: DOTWEEN
-    Nintendo Switch: DOTWEEN
-    PS4: DOTWEEN
-    PS5: DOTWEEN
-    QNX: DOTWEEN
-    ReservedCFE: DOTWEEN
-    Standalone: DOTWEEN
-    VisionOS: DOTWEEN
-    WebGL: DOTWEEN
-    Windows Store Apps: DOTWEEN
-    XboxOne: DOTWEEN
-    iPhone: DOTWEEN
-    tvOS: DOTWEEN
+    Android: HAS_VOODYA
+    EmbeddedLinux: DOTWEEN;HAS_VOODYA
+    GameCoreScarlett: DOTWEEN;HAS_VOODYA
+    GameCoreXboxOne: DOTWEEN;HAS_VOODYA
+    LinuxHeadlessSimulation: DOTWEEN;HAS_VOODYA
+    Nintendo Switch: DOTWEEN;HAS_VOODYA
+    PS4: DOTWEEN;HAS_VOODYA
+    PS5: DOTWEEN;HAS_VOODYA
+    QNX: DOTWEEN;HAS_VOODYA
+    ReservedCFE: DOTWEEN;HAS_VOODYA
+    Standalone: HAS_VOODYA
+    VisionOS: DOTWEEN;HAS_VOODYA
+    WebGL: dsfsdf;dfsdfff;fff;HAS_VOODYA
+    Windows Store Apps: DOTWEEN;HAS_VOODYA
+    XboxOne: DOTWEEN;HAS_VOODYA
+    iPhone: HAS_VOODYA
+    tvOS: DOTWEEN;HAS_VOODYA
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
