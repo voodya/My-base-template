@@ -5,7 +5,7 @@
     "name": "Voodya",
     "url": "https://voodyadev.online/"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "unity": "2018.4",
   "description": "Arch template",
   "keywords": [ "async/await", "async", "Task", "UniTask" ],
@@ -13,8 +13,6 @@
   "category": "arch",
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.1",
-    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-    "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer",
     "com.unity.addressables": "2.2.2"
   }
 }

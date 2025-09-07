@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Unity.Plastic.Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 using Voodya.Core;
@@ -179,6 +181,7 @@ using Module = UnityEditor.EditorGUILayout;
             {
                 if (GUILayout.Button("loadData")) LoadData();
                 if (GUILayout.Button("Save")) SaveData();
+                if (GUILayout.Button("Resolve Dependences")) Resolve();
             }
             Module.EndHorizontal();
 
@@ -194,7 +197,42 @@ using Module = UnityEditor.EditorGUILayout;
             }
         }
 
-        private void LoadData()
+    private void Resolve()
+    {
+        string manifestPath = Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
+
+        if (File.Exists(manifestPath))
+        {
+            try
+            {
+                string manifestContent = File.ReadAllText(manifestPath);
+                Depend dep = JsonConvert.DeserializeObject<Depend>(manifestContent); 
+                //Debug.Log("manifest.json content:\n" + manifestContent);
+                if (!dep.dependencies.ContainsKey("jp.hadashikick.vcontainer"))
+                    dep.dependencies["jp.hadashikick.vcontainer"] = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
+                else
+                    Debug.LogError("VContainer exist");
+                if (!dep.dependencies.ContainsKey("com.cysharp.unitask"))
+                    dep.dependencies["com.cysharp.unitask"] = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
+                else
+                    Debug.LogError("UniTask exist");
+
+                File.WriteAllText(manifestPath, JsonConvert.SerializeObject(dep));
+                // You can then parse the JSON content using a library like Newtonsoft.Json
+                // or Unity's JsonUtility if the structure is simple.
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("Error reading manifest.json: " + e.Message);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("manifest.json not found at: " + manifestPath);
+        }
+    }
+
+    private void LoadData()
         {
             _servicesData = new Dictionary<string, ServiceData>();
             _currentData = new Dictionary<string, List<string>>();
@@ -607,8 +645,13 @@ using Module = UnityEditor.EditorGUILayout;
             result.SetPixels(pix);
             result.Apply();
             return result;
-        }
     }
+}
+
+public class Depend
+{
+    public Dictionary<string, string> dependencies;
+}
 
 
 
