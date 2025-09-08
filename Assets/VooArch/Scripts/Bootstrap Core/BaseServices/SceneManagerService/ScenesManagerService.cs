@@ -15,7 +15,9 @@ namespace Voodya.Core
     public interface ISceneManager
     {
         UniTask<T> GetScene<T>(bool hide = false) where T : ABaseScene;
-        void RegisterScene<T>(AssetReference assetReference) where T : ABaseScene;
+        //void RegisterScene<T>(AssetReference assetReference) where T : ABaseScene;
+        void RegisterScene(Type type, AssetReference assetReference);
+        void RegisterScene(Type type, string assetReference);
         UniTask ReleaseAllScenes();
         UniTask ReleaseScene<T>() where T : ABaseScene;
     }
@@ -49,6 +51,7 @@ namespace Voodya.Core
     {
 
         private readonly Dictionary<Type, AssetReference> _registredScenes;
+        private readonly Dictionary<Type, string> _registredScenesStrings;
         private readonly Dictionary<Type, (ABaseScene, AsyncOperationHandle<SceneInstance>)> _loadedScenes;
         private SyncAnimationController _animationController = new();
 
@@ -59,11 +62,20 @@ namespace Voodya.Core
             _loadedScenes = new Dictionary<Type, (ABaseScene, AsyncOperationHandle<SceneInstance>)>();
         }
 
-        public void RegisterScene<T>(AssetReference assetReference) where T : ABaseScene
+        public void RegisterScene(Type type, AssetReference assetReference)
         {
-            Type type = typeof(T);
             if (!_registredScenes.ContainsKey(type))
                 _registredScenes.Add(type, assetReference);
+            else
+            {
+                Debug.LogError($"{type} already registred");
+            }
+        }
+
+        public void RegisterScene(Type type, string assetReference)
+        {
+            if (!_registredScenes.ContainsKey(type))
+                _registredScenesStrings.Add(type, assetReference);
             else
             {
                 Debug.LogError($"{type} already registred");
@@ -132,6 +144,7 @@ namespace Voodya.Core
             else
             {
                 AsyncOperationHandle<SceneInstance> loadingOperation = Addressables.LoadSceneAsync(_registredScenes[screenType], LoadSceneMode.Additive);
+                //AsyncOperationHandle<SceneInstance> loadingOperations = Addressables.LoadSceneAsync(_registredScenesStrings[screenType], LoadSceneMode.Additive);
 
                 T scene = (await loadingOperation).Scene.GetRoot<T>();
                 _loadedScenes[screenType] = (scene, loadingOperation);

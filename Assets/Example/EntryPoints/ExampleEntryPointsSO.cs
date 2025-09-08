@@ -7,6 +7,7 @@ public class ExampleEntryPointsSO : ScriptableStates
 {
     public override void OnRegister(IApplicationScopesService applicationScopesService, IObjectResolver objectResolver)
     {
+
         _firstStateType = typeof(MenuEntryPointExample);
         applicationScopesService.Register(new DefaultState<MenuEntryPointExample>(objectResolver));
     }

@@ -18,3 +18,13 @@ MonoBehaviour:
     m_SubObjectGUID: 
     m_SubObjectType: 
     m_EditorAssetChanged: 0
+  _scenes: {fileID: 0}
+  _sceneNames:
+    _data:
+    - Key: {fileID: 0}
+      Value:
+        m_AssetGUID: 
+        m_SubObjectName: 
+        m_SubObjectGUID: 
+        m_SubObjectType: 
+        m_EditorAssetChanged: 0

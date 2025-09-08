@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using Unity.Plastic.Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 #if HAS_VOODYA
 using Voodya.Core;
+using static UnityEngine.EventSystems.EventTrigger;
+
 #endif
 using Module = UnityEditor.EditorGUILayout;
-#if !HAS_VOODYA
+#if HAS_VOODYA
 [InitializeOnLoad]
 public static class VooResolver
 {
@@ -57,29 +60,7 @@ public static class VooResolver
             Debug.LogWarning("manifest.json not found at: " + manifestPath);
         }
 
-        Type type = typeof(NamedBuildTarget);
-        var props = type.GetProperties().ToList();
-        List<BuildTargetGroup> groups = Enum.GetValues(typeof(BuildTargetGroup)).Cast<BuildTargetGroup>().ToList();
-
-        foreach (var prop in groups)
-        {
-            //if (prop == BuildTargetGroup.Unknown) continue;
-            try
-            {
-                NamedBuildTarget target = NamedBuildTarget.FromBuildTargetGroup(prop);
-                string symb = PlayerSettings.GetScriptingDefineSymbols(target);
-                if (!symb.Split(";").ToList().Any(x => x.Equals("HAS_VOODYA")))
-                {
-                    symb += ";HAS_VOODYA";
-                    PlayerSettings.SetScriptingDefineSymbols(target, symb);
-                }
-            }
-            catch (Exception e)
-            {
-                //Debug.LogError($"No have group {e}");
-            }
-
-        }
+        VooHelpers.AddNewScriptingDefineSymbols("HAS_VOODYA");
 
 
     }
@@ -92,54 +73,59 @@ public class Depend
 #endif
 #if HAS_VOODYA
 
-public class ArchView : EditorWindow
+public static class VooHelpers
 {
-
-    private Dictionary<string, List<string>> _currentData;
-    private Dictionary<string, ServiceData> _servicesData;
-
-     
-    private bool isDragging = false;
-    private string draggedItem;
-    private string beforeDrag;
-    private Vector2 scrollPosition = Vector2.zero;
-    private Vector2 scrollPositionPropertys = Vector2.zero;
-    private string globalScopeName = typeof(BootstrapEntryPoint).Name;
-    private List<Type> _entrys;
-    private List<string> _targetServices;
-    private Dictionary<string, Vector2> _customScrolls = new Dictionary<string, Vector2>();
-
-    #region Const strings
-
-    private const string RAW_ASSET_NAME = "ArchConfigData.asset";
-    private const string ALL_ASSETS_PATH = "Assets/ARCH_CONFIGURE";
-    private const string ASSETS_FOLDER_NAME = "ARCH_CONFIGURE";
-    private const string COMPOSITE_FOLDER_NAME = "COMPOSIT_INSTALLERS";
-    private const string SERVICES_FOLDER_NAME = "SERVICES_INSTALLERS";
-    private const string INSTALLERS_TITLE = "All installers";
-
-    #endregion
-
-    private ArchConfigData _config;
-    private CompositeInstaller _currentCompositeInstaller;
-
-    [MenuItem("VooArch/Voo arch configure")]
-    public static void ShowWindow()
+    public static void AddNewScriptingDefineSymbols(string define)
     {
-        GetWindow<ArchView>("Arch View");
-    }
+        Type type = typeof(NamedBuildTarget);
+        var props = type.GetProperties().ToList();
+        List<BuildTargetGroup> groups = Enum.GetValues(typeof(BuildTargetGroup)).Cast<BuildTargetGroup>().ToList();
 
-    private void OnEnable()
-    {
-        if (!AssetDatabase.AssetPathExists(ALL_ASSETS_PATH))
+        foreach (var prop in groups)
         {
-            AssetDatabase.CreateFolder("Assets", ASSETS_FOLDER_NAME);
-            AssetDatabase.CreateFolder($"Assets/{ASSETS_FOLDER_NAME}", COMPOSITE_FOLDER_NAME);
-            AssetDatabase.CreateFolder($"Assets/{ASSETS_FOLDER_NAME}", SERVICES_FOLDER_NAME);
-        }
+            //if (prop == BuildTargetGroup.Unknown) continue;
+            try
+            {
+                NamedBuildTarget target = NamedBuildTarget.FromBuildTargetGroup(prop);
+                string symb = PlayerSettings.GetScriptingDefineSymbols(target);
+                if (!symb.Split(";").ToList().Any(x => x.Equals(define)))
+                {
+                    symb += $";{define}";
+                    PlayerSettings.SetScriptingDefineSymbols(target, symb);
+                }
+            }
+            catch (Exception e)
+            {
+                //Debug.LogError($"No have group {e}");
+            }
 
-        LoadData();
+        }
     }
+
+}
+
+
+[InitializeOnLoad]
+public static class VooSourceGen
+{
+    private static List<Type> _entrys;
+    private static List<Type> _scenes;
+    static VooSourceGen()
+    {
+        Generate();
+    }
+
+    private static void Generate()
+    {
+        _entrys = FindDerivedClasses<ABaseEntryPoint>();
+        _scenes = FindDerivedClasses<ABaseScene>();
+        string path = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_EP.cs");
+        string pathScenes = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_SCENES.cs");
+        EntryPointSOGenerator.Generate(_entrys, path);
+        AddressableSceneGenerator.Generate(_scenes, pathScenes);
+        VooHelpers.AddNewScriptingDefineSymbols("GENERATED_VOODYA");
+    }
+
 
     public static List<Type> FindDerivedClasses<TBaseType>()
     {
@@ -202,6 +188,222 @@ public class ArchView : EditorWindow
 
 
     }
+}
+
+
+/// <summary>
+/// Генерирует класс-наследник ScriptableStates для регистрации
+/// точек входа (Entry Points) приложения.
+/// </summary>
+public static class EntryPointSOGenerator
+{
+    /// <summary>
+    /// Создает C#-файл на основе списка типов.
+    /// </summary>
+    /// <param name="entryTypes">Список типов точек входа.</param>
+    /// <param name="outputPath">Полный путь для сохранения файла (например, "Assets/Scripts/Generated/AUTOGEN_EP.cs").</param>
+    public static void Generate(List<Type> entryTypes, string outputPath)
+    {
+        // 1. Проверка входных данных
+        if (entryTypes == null || !entryTypes.Any())
+        {
+            throw new ArgumentException("Список типов для генерации не может быть пустым.", nameof(entryTypes));
+        }
+
+        if (string.IsNullOrEmpty(outputPath))
+        {
+            throw new ArgumentException("Путь для сохранения файла не может быть пустым.", nameof(outputPath));
+        }
+
+        var sb = new StringBuilder();
+
+        // 2. Заголовок и using'и
+        sb.AppendLine("// ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.");
+        sb.AppendLine("using System;");
+        sb.AppendLine("using UnityEngine;");
+        sb.AppendLine("using VContainer;");
+        sb.AppendLine("using Voodya.Core;");
+        sb.AppendLine();
+
+        // 3. Определение класса с атрибутом CreateAssetMenu
+        sb.AppendLine("[CreateAssetMenu(fileName = \"EntrysMapping\", menuName = \"Voodya/Entry Points Mapping\")]");
+        sb.AppendLine("public class AUTOGEN_EP : ScriptableStates");
+        sb.AppendLine("{");
+
+        // 4. Генерация метода OnRegister
+        sb.AppendLine("    public override void OnRegister(IApplicationScopesService applicationScopesService, IObjectResolver objectResolver)");
+        sb.AppendLine("    {");
+
+        // Устанавливаем тип первого состояния
+        string firstTypeName = entryTypes.First().Name;
+        sb.AppendLine($"        _firstStateType = typeof({firstTypeName});");
+        sb.AppendLine(); // Пустая строка для читаемости
+
+        // Регистрируем все состояния из списка
+        foreach (var type in entryTypes)
+        {
+            string typeName = type.Name;
+            sb.AppendLine($"        applicationScopesService.Register(new DefaultState<{typeName}>(objectResolver));");
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+
+        // 5. Сохранение файла
+        try
+        {
+            var outputDir = Path.GetDirectoryName(outputPath);
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
+            File.WriteAllText(outputPath, sb.ToString());
+            Debug.Log($"[EntryPointSOGenerator] Файл успешно сгенерирован: {outputPath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[EntryPointSOGenerator] Ошибка при записи файла: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// Генерирует класс-наследник BaseScenesSO для регистрации
+/// сцен из Addressables.
+/// </summary>
+public static class AddressableSceneGenerator
+{
+    /// <summary>
+    /// Создает C#-файл на основе списка типов.
+    /// </summary>
+    /// <param name="sceneTypes">Список типов (классов-контроллеров) сцен.</param>
+    /// <param name="outputPath">Полный путь для сохранения файла (например, "Assets/Scripts/Generated/AUTOGEN_SCENES_MAPPING.cs").</param>
+    public static void Generate(List<Type> sceneTypes, string outputPath)
+    {
+        if (string.IsNullOrEmpty(outputPath))
+        {
+            throw new ArgumentException("Путь для сохранения файла не может быть пустым.", nameof(outputPath));
+        }
+
+        sceneTypes ??= new List<Type>();
+
+        var sb = new StringBuilder();
+
+        // 1. Заголовок и using'и
+        sb.AppendLine("// ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.");
+        sb.AppendLine("using Voodya.Core;");
+        sb.AppendLine("using UnityEngine;");
+        sb.AppendLine("using UnityEngine.AddressableAssets;");
+        sb.AppendLine();
+
+        // 2. Определение класса
+        // Атрибут для создания ассета из меню Unity
+        sb.AppendLine("[CreateAssetMenu(fileName = \"ScenesMapping\", menuName = \"Voodya/Scenes Mapping\")]");
+        sb.AppendLine("public class AUTOGEN_SCENES_MAPPING : BaseScenesSO");
+        sb.AppendLine("{");
+
+        // 3. Генерация полей [SerializeField]
+        if (sceneTypes.Any())
+        {
+            sb.AppendLine("    // Поля для привязки ассетов сцен в инспекторе");
+            foreach (var type in sceneTypes)
+            {
+                string typeName = type.Name;
+                // Превращаем "LoadingScene" в "_loadingScene"
+                string fieldName = $"_{char.ToLower(typeName[0])}{typeName.Substring(1)}";
+
+                sb.AppendLine($"    [SerializeField] private AssetReference {fieldName};");
+            }
+            sb.AppendLine();
+        }
+
+        // 4. Генерация метода OnRegister
+        sb.AppendLine("    public override void OnRegister(ScenesManagerService service)");
+        sb.AppendLine("    {");
+        foreach (var type in sceneTypes)
+        {
+            string typeName = type.Name;
+            string fieldName = $"_{char.ToLower(typeName[0])}{typeName.Substring(1)}";
+
+            sb.AppendLine($"        service.RegisterScene(typeof({typeName}), {fieldName});");
+        }
+        sb.AppendLine("    }");
+
+        // 5. Завершение
+        sb.AppendLine("}");
+
+        // Сохранение файла
+        try
+        {
+            var outputDir = Path.GetDirectoryName(outputPath);
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
+            File.WriteAllText(outputPath, sb.ToString());
+            Debug.Log($"[AddressableSceneGenerator] Файл успешно сгенерирован: {outputPath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AddressableSceneGenerator] Ошибка при записи файла: {ex.Message}");
+        }
+    }
+}
+
+public class ArchView : EditorWindow
+{
+
+    private Dictionary<string, List<string>> _currentData;
+    private Dictionary<string, ServiceData> _servicesData;
+
+     
+    private bool isDragging = false;
+    private string draggedItem;
+    private string beforeDrag;
+    private Vector2 scrollPosition = Vector2.zero;
+    private Vector2 scrollPositionPropertys = Vector2.zero;
+    private string globalScopeName = typeof(BootstrapEntryPoint).Name;
+    private List<Type> _entrys;
+    private List<string> _targetServices;
+    private Dictionary<string, Vector2> _customScrolls = new Dictionary<string, Vector2>();
+
+    #region Const strings
+
+    private const string RAW_ASSET_NAME = "ArchConfigData.asset";
+    private const string ALL_ASSETS_PATH = "Assets/ARCH_CONFIGURE";
+    private const string ASSETS_FOLDER_NAME = "ARCH_CONFIGURE";
+    private const string COMPOSITE_FOLDER_NAME = "COMPOSIT_INSTALLERS";
+    private const string SERVICES_FOLDER_NAME = "SERVICES_INSTALLERS";
+    private const string INSTALLERS_TITLE = "All installers";
+
+    #endregion
+
+    private ArchConfigData _config;
+    private CompositeInstaller _currentCompositeInstaller;
+
+    [MenuItem("VooArch/Voo arch configure")]
+    public static void ShowWindow()
+    {
+        GetWindow<ArchView>("Arch View");
+    }
+
+    private void OnEnable()
+    {
+        if (!AssetDatabase.AssetPathExists(ALL_ASSETS_PATH))
+        {
+            AssetDatabase.CreateFolder("Assets", ASSETS_FOLDER_NAME);
+            AssetDatabase.CreateFolder($"Assets/{ASSETS_FOLDER_NAME}", COMPOSITE_FOLDER_NAME);
+            AssetDatabase.CreateFolder($"Assets/{ASSETS_FOLDER_NAME}", SERVICES_FOLDER_NAME);
+        }
+
+        LoadData();
+    }
+
+    
+
+    
 
     private void OnGUI()
     {
@@ -284,13 +486,13 @@ public class ArchView : EditorWindow
     {
         _servicesData = new Dictionary<string, ServiceData>();
         _currentData = new Dictionary<string, List<string>>();
-        _entrys = FindDerivedClasses<ABaseEntryPoint>();
+        _entrys = VooSourceGen.FindDerivedClasses<ABaseEntryPoint>();
         _config = AssetDatabase.LoadAssetAtPath(ALL_ASSETS_PATH + "/" + RAW_ASSET_NAME, typeof(ArchConfigData)) as ArchConfigData;
         if (_config == null)
         {
             _config = CreateNewConfig();
         }
-        var services = FindClassesWithAttribute<ServiceAttribute>();
+        var services = VooSourceGen.FindClassesWithAttribute<ServiceAttribute>();
         _targetServices = services.Select(x => x.Name).ToList();
         _currentData = _config._stringsData.GetRawDictionary();
 
@@ -328,8 +530,27 @@ public class ArchView : EditorWindow
 
 
         _currentData[INSTALLERS_TITLE] = newServices;
-
+        CreateSceneConfig();
+        CreateEntrysConfig();
         CreateInstallers(_entrys, newDatas);
+    }
+
+    private void CreateEntrysConfig()
+    {
+        if (!AssetDatabase.AssetPathExists($"{ALL_ASSETS_PATH}/EntrysMapping.asset"))
+        {
+            var obj = new AUTOGEN_EP();
+            AssetDatabase.CreateAsset(obj, ALL_ASSETS_PATH + "/EntrysMapping.asset");
+        }
+    }
+
+    private void CreateSceneConfig()
+    {
+        if (!AssetDatabase.AssetPathExists($"{ALL_ASSETS_PATH}/ScenesMapping.asset"))
+        {
+            var obj = new AUTOGEN_SCENES_MAPPING();
+            AssetDatabase.CreateAsset(obj, ALL_ASSETS_PATH + "/ScenesMapping.asset");
+        }
     }
 
     private ArchConfigData CreateNewConfig()
