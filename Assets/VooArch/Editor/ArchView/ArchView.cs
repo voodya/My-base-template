@@ -539,8 +539,10 @@ public class ArchView : EditorWindow
     {
         if (!AssetDatabase.AssetPathExists($"{ALL_ASSETS_PATH}/EntrysMapping.asset"))
         {
+#if GENERATED_VOODYA
             var obj = new AUTOGEN_EP();
             AssetDatabase.CreateAsset(obj, ALL_ASSETS_PATH + "/EntrysMapping.asset");
+#endif
         }
     }
 
@@ -548,8 +550,10 @@ public class ArchView : EditorWindow
     {
         if (!AssetDatabase.AssetPathExists($"{ALL_ASSETS_PATH}/ScenesMapping.asset"))
         {
+#if GENERATED_VOODYA
             var obj = new AUTOGEN_SCENES_MAPPING();
             AssetDatabase.CreateAsset(obj, ALL_ASSETS_PATH + "/ScenesMapping.asset");
+#endif
         }
     }
 
