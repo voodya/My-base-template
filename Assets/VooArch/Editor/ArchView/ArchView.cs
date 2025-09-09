@@ -249,6 +249,7 @@ public static class EntryPointSOGenerator
         // Регистрируем все состояния из списка
         foreach (var type in entryTypes)
         {
+            if (type.GetCustomAttribute<EntryPointAttribute>()?.Ignore ?? true) continue;
             string typeName = type.Name;
             sb.AppendLine($"        applicationScopesService.Register(new DefaultState<{typeName}>(objectResolver));");
         }

@@ -12,6 +12,5 @@ public class AUTOGEN_EP : ScriptableStates
         _firstStateType = typeof(MenuEntryPointExample);
 
         applicationScopesService.Register(new DefaultState<MenuEntryPointExample>(objectResolver));
-        applicationScopesService.Register(new DefaultState<BootstrapEntryPoint>(objectResolver));
     }
 }
