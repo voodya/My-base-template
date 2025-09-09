@@ -12,19 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca2707f10541efd459f77f1dd8bb7378, type: 3}
   m_Name: ScenesManagerSO
   m_EditorClassIdentifier: 
-  _loadingScene:
-    m_AssetGUID: e923d0e48d54d0345b2de32a9ebc6aa7
-    m_SubObjectName: 
-    m_SubObjectGUID: 
-    m_SubObjectType: 
-    m_EditorAssetChanged: 0
-  _scenes: {fileID: 0}
-  _sceneNames:
-    _data:
-    - Key: {fileID: 0}
-      Value:
-        m_AssetGUID: 
-        m_SubObjectName: 
-        m_SubObjectGUID: 
-        m_SubObjectType: 
-        m_EditorAssetChanged: 0
+  _scenes: {fileID: 11400000, guid: 0e79914fcd4bc864a85df68599818348, type: 2}
