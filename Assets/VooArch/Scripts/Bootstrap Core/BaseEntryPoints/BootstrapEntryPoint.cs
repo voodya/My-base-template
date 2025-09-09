@@ -12,6 +12,7 @@ using VContainer;
 #if HAS_VOODYA
 namespace Voodya.Core
 {
+    [EntryPoint(true)]
     public class BootstrapEntryPoint : ABaseEntryPoint
     {
         private IApplicationScopesService _stateMachineService;

@@ -8,6 +8,7 @@ using UnityEngine;
 #if HAS_VOODYA
 namespace Voodya.Core
 {
+    [EntryPoint(0)]
     public class MenuEntryPointExample : ABaseEntryPoint
     {
         private ISceneManager _sceneManager;

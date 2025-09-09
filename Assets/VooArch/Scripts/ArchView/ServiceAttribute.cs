@@ -23,6 +23,25 @@ namespace Voodya.Core
             InstallerType = installerType;
         }
     }
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public class EntryPointAttribute : Attribute
+    {
+        public int Priority { get; }
+        public bool Ignore { get; }
+
+        public EntryPointAttribute(int priority = 100)
+        {
+            Priority = priority;
+            Ignore = false;
+        }
+
+        public EntryPointAttribute(bool ignore)
+        {
+            Ignore = ignore;
+            Priority = 100;
+        }
+    }
 }
 
 #endif

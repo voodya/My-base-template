@@ -118,7 +118,7 @@ public static class VooSourceGen
 
     private static void Generate()
     {
-        _entrys = FindDerivedClasses<ABaseEntryPoint>();
+        _entrys = FindClassesWithAttribute<EntryPointAttribute>();
         _scenes = FindDerivedClasses<ABaseScene>();
         string path = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_EP.cs");
         string pathScenes = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_SCENES.cs");
@@ -236,6 +236,12 @@ public static class EntryPointSOGenerator
         sb.AppendLine("    {");
 
         // Устанавливаем тип первого состояния
+        entryTypes.Sort((type1, type2) =>
+        {
+            var priority1 = type1.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
+            var priority2 = type2.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
+            return priority1.CompareTo(priority2);
+        });
         string firstTypeName = entryTypes.First().Name;
         sb.AppendLine($"        _firstStateType = typeof({firstTypeName});");
         sb.AppendLine(); // Пустая строка для читаемости
