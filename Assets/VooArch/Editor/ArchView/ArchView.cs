@@ -71,8 +71,6 @@ public class Depend
     public Dictionary<string, string> dependencies;
 }
 #endif
-#if HAS_VOODYA
-
 public static class VooHelpers
 {
     public static void AddNewScriptingDefineSymbols(string define)
@@ -103,6 +101,9 @@ public static class VooHelpers
     }
 
 }
+#if HAS_VOODYA
+
+
 
 
 [InitializeOnLoad]
@@ -920,10 +921,5 @@ public class ArchView : EditorWindow
         return result;
     }
 }
-
-
-
-
-
 
 #endif
