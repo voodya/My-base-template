@@ -14,7 +14,7 @@ using static UnityEngine.EventSystems.EventTrigger;
 
 #endif
 using Module = UnityEditor.EditorGUILayout;
-#if HAS_VOODYA
+#if !HAS_VOODYA
 [InitializeOnLoad]
 public static class VooResolver
 {
