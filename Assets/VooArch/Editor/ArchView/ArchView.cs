@@ -568,7 +568,14 @@ public class ArchView : EditorWindow
 
     private void CreateInstallers(List<Type> entryPoints, List<ServiceData> services)
     {
-
+        if (!Directory.Exists($"{ALL_ASSETS_PATH}/{COMPOSITE_FOLDER_NAME}/"))
+        {
+            Directory.CreateDirectory($"{ALL_ASSETS_PATH}/{COMPOSITE_FOLDER_NAME}/");
+        }
+        if (!Directory.Exists($"{ALL_ASSETS_PATH}/{SERVICES_FOLDER_NAME}/"))
+        {
+            Directory.CreateDirectory($"{ALL_ASSETS_PATH}/{SERVICES_FOLDER_NAME}/");
+        }
         if (!AssetDatabase.AssetPathExists($"{ALL_ASSETS_PATH}/{RAW_ASSET_NAME}"))
         {
             var obj = new ArchConfigData();
