@@ -4,14 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Unity.Plastic.Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 #if HAS_VOODYA
 using Voodya.Core;
-using static UnityEngine.EventSystems.EventTrigger;
-
 #endif
 using Module = UnityEditor.EditorGUILayout;
 #if !HAS_VOODYA
@@ -111,6 +110,10 @@ public static class VooSourceGen
 {
     private static List<Type> _entrys;
     private static List<Type> _scenes;
+
+    private static List<Type> _legacyEntrysTypes;
+    private static List<Type> _legacyScenesTypes;
+
     static VooSourceGen()
     {
         Generate();
@@ -122,8 +125,8 @@ public static class VooSourceGen
         _scenes = FindDerivedClasses<ABaseScene>();
         string path = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_EP.cs");
         string pathScenes = Path.Combine(Application.dataPath, "..", "Assets", "ARCH_CONFIGURE", "AUTOGEN_SCENES.cs");
-        EntryPointSOGenerator.Generate(_entrys, path);
         AddressableSceneGenerator.Generate(_scenes, pathScenes);
+        EntryPointSOGenerator.Generate(_entrys, path);
         VooHelpers.AddNewScriptingDefineSymbols("GENERATED_VOODYA");
     }
 
@@ -205,6 +208,7 @@ public static class EntryPointSOGenerator
     /// <param name="outputPath">Полный путь для сохранения файла (например, "Assets/Scripts/Generated/AUTOGEN_EP.cs").</param>
     public static void Generate(List<Type> entryTypes, string outputPath)
     {
+
         // 1. Проверка входных данных
         if (entryTypes == null || !entryTypes.Any())
         {
@@ -216,10 +220,48 @@ public static class EntryPointSOGenerator
             throw new ArgumentException("Путь для сохранения файла не может быть пустым.", nameof(outputPath));
         }
 
+        entryTypes.Sort((type1, type2) =>
+        {
+            var priority1 = type1.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
+            var priority2 = type2.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
+            return priority1.CompareTo(priority2);
+        });
+
+        if (File.Exists(outputPath))
+        {
+            List<string> newServices = entryTypes.Select(x => x.Name).ToList();
+            string pattern = @"(?<=\/\/)[A-Za-z]+";
+            string text = File.ReadAllText(outputPath);
+
+            MatchCollection matches = Regex.Matches(text, pattern);
+
+            List<string> services = new List<string>();
+            foreach (Match match in matches)
+            {
+                services.Add(match.Value);
+            }
+            bool FindNew = false;
+            foreach (var service in newServices)
+            {
+                if (!services.Contains(service))
+                    FindNew = true;
+            }
+
+            if (!FindNew)
+                return;
+        }
+
         var sb = new StringBuilder();
 
         // 2. Заголовок и using'и
         sb.AppendLine("// ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.");
+        sb.AppendLine("///RAW");
+        foreach (var entry in entryTypes)
+        {
+            sb.AppendLine($"//{entry.Name}");
+
+        }
+        sb.AppendLine("///RAW");
         sb.AppendLine("using System;");
         sb.AppendLine("using UnityEngine;");
         sb.AppendLine("using VContainer;");
@@ -236,12 +278,7 @@ public static class EntryPointSOGenerator
         sb.AppendLine("    {");
 
         // Устанавливаем тип первого состояния
-        entryTypes.Sort((type1, type2) =>
-        {
-            var priority1 = type1.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
-            var priority2 = type2.GetCustomAttribute<EntryPointAttribute>()?.Priority ?? int.MaxValue;
-            return priority1.CompareTo(priority2);
-        });
+
         string firstTypeName = entryTypes.First().Name;
         sb.AppendLine($"        _firstStateType = typeof({firstTypeName});");
         sb.AppendLine(); // Пустая строка для читаемости
@@ -296,10 +333,41 @@ public static class AddressableSceneGenerator
 
         sceneTypes ??= new List<Type>();
 
+        if (File.Exists(outputPath))
+        {
+            List<string> newServices = sceneTypes.Select(x => x.Name).ToList();
+            string pattern = @"(?<=\/\/)[A-Za-z]+";
+            string text = File.ReadAllText(outputPath);
+
+            MatchCollection matches = Regex.Matches(text, pattern);
+
+            List<string> services = new List<string>();
+            foreach (Match match in matches)
+            {
+                services.Add(match.Value);
+            }
+            bool FindNew = false;
+            foreach (var service in newServices)
+            {
+                if (!services.Contains(service))
+                    FindNew = true;
+            }
+
+            if (!FindNew)
+                return;
+        }
+
         var sb = new StringBuilder();
 
         // 1. Заголовок и using'и
         sb.AppendLine("// ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.");
+        sb.AppendLine("///RAW");
+        foreach (var entry in sceneTypes)
+        {
+            sb.AppendLine($"//{entry.Name}");
+
+        }
+        sb.AppendLine("///RAW");
         sb.AppendLine("using Voodya.Core;");
         sb.AppendLine("using UnityEngine;");
         sb.AppendLine("using UnityEngine.AddressableAssets;");
@@ -366,7 +434,7 @@ public class ArchView : EditorWindow
     private Dictionary<string, List<string>> _currentData;
     private Dictionary<string, ServiceData> _servicesData;
 
-     
+
     private bool isDragging = false;
     private string draggedItem;
     private string beforeDrag;
@@ -409,9 +477,9 @@ public class ArchView : EditorWindow
         LoadData();
     }
 
-    
 
-    
+
+
 
     private void OnGUI()
     {
@@ -488,7 +556,7 @@ public class ArchView : EditorWindow
         }
     }
 
-    
+
 
     private void LoadData()
     {

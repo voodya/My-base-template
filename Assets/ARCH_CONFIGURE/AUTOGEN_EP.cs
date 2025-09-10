@@ -1,4 +1,8 @@
 // ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.
+///RAW
+//MenuEntryPointExample
+//BootstrapEntryPoint
+///RAW
 using System;
 using UnityEngine;
 using VContainer;

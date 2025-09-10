@@ -1,4 +1,7 @@
 // ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.
+///RAW
+//LoadingScene
+///RAW
 using Voodya.Core;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
