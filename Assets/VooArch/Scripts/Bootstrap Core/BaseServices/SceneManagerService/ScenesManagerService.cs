@@ -64,6 +64,11 @@ namespace Voodya.Core
 
         public void RegisterScene(Type type, AssetReference assetReference)
         {
+            if (assetReference.AssetGUID == "")
+            {
+                Debug.LogError($"{type} AssetReference is null!");
+                return;
+            }
             if (!_registredScenes.ContainsKey(type))
                 _registredScenes.Add(type, assetReference);
             else
