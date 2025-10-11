@@ -15,12 +15,12 @@ namespace Voodya.Core
     public interface ISceneManager
     {
         UniTask<T> GetScene<T>(bool hide = false) where T : ABaseScene;
-        UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action<T> onDispose = null) where T : ABaseScene;
+        UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action onDispose = null) where T : ABaseScene;
         UniTask<T> GetScene<T>() where T : ABaseScene;
-        UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action<T> onDispose) where T : ABaseScene;
+        UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose) where T : ABaseScene;
         UniTask<T> GetSceneWithAfterAction<T>(Action<T> afterShow) where T : ABaseScene;
         UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow) where T : ABaseScene;
-        UniTask<T> GetSceneWithDisposeAction<T>(Action<T> onDispose) where T : ABaseScene;
+        UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose) where T : ABaseScene;
 
         //void RegisterScene<T>(AssetReference assetReference) where T : ABaseScene;
         void RegisterScene(Type type, AssetReference assetReference);
@@ -60,7 +60,7 @@ namespace Voodya.Core
         private readonly Dictionary<Type, AssetReference> _registredScenes;
         private readonly Dictionary<Type, string> _registredScenesStrings;
         private readonly Dictionary<Type, (ABaseScene, AsyncOperationHandle<SceneInstance>)> _loadedScenes;
-        private readonly Dictionary<Type, Action<ABaseScene>> _onDisposeActions;
+        private readonly Dictionary<Type, Action> _onDisposeActions;
         private SyncAnimationController _animationController = new();
 
 
@@ -190,24 +190,24 @@ namespace Voodya.Core
             return await GetScene<T>(false, null, afterShow);
         }
 
-        public async UniTask<T> GetSceneWithDisposeAction<T>(Action<T> onDispose)
+        public async UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose)
             where T : ABaseScene
         {
             return await GetScene<T>(false, null, null, onDispose);
         }
 
-        public async UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action<T> onDispose)
+        public async UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose)
             where T : ABaseScene
         {
             return await GetScene<T>(false, beforeShow, afterShow, onDispose);
         }
 
-        public async UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action<T> onDispose = null)
+        public async UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action onDispose = null)
             where T : ABaseScene
         {
 
             Type screenType = typeof(T);
-            _onDisposeActions[screenType] = (Action<ABaseScene>)onDispose;
+            _onDisposeActions[screenType] = onDispose;
             if (_loadedScenes.ContainsKey(screenType))
             {
                 T scene = _loadedScenes[screenType].Item1 as T;
@@ -250,10 +250,10 @@ namespace Voodya.Core
             {
                 _animationController.RemoveAnimation(_loadedScenes[screenType].Item1.Animation);
                 await _loadedScenes[screenType].Item1.Hide();
-                if (_onDisposeActions.ContainsKey(screenType))
-                    _onDisposeActions[screenType]?.Invoke(_loadedScenes[screenType].Item1);
                 _loadedScenes[screenType].Item1.Dispose();
-                
+                if (_onDisposeActions.ContainsKey(screenType))
+                    _onDisposeActions[screenType]?.Invoke();
+
                 await Addressables.UnloadSceneAsync(_loadedScenes[screenType].Item2);
                 _loadedScenes.Remove(screenType);
             }
