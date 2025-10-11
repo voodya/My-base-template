@@ -25,7 +25,6 @@ namespace Voodya.Core
         }
 
         public ABaseUIAnimation Animation => _animation;
-
         public GameObject DisposeObject => gameObject;
         public CompositeDisposable OnceSubscribe => _onceDisposables;
 

@@ -7,6 +7,9 @@ using Cysharp.Threading.Tasks;
 
 namespace Voodya.Core
 {
+    /// <summary>
+    /// TODO: Add Dictionary<hash, Tween> validation
+    /// </summary>
     public abstract class ABaseUIAnimation : ScriptableObject
     {
         [SerializeField] public float _animationTime;
