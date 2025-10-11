@@ -114,6 +114,8 @@ namespace Voodya.Core
             {
                 if (item.Key == typeof(LoadingScene))
                     continue;
+                if (_onDisposeActions.ContainsKey(item.Key))
+                    _onDisposeActions[item.Key]?.Invoke();
                 await Addressables.UnloadSceneAsync(_loadedScenes[item.Key].Item2);
             }
             ValidateScenes();
@@ -239,7 +241,6 @@ namespace Voodya.Core
                 return scene;
             }
         }
-
 
         public async UniTask ReleaseScene<T>()
             where T : ABaseScene
