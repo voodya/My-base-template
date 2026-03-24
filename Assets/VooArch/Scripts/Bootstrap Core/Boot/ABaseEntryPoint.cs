@@ -15,15 +15,19 @@ namespace Voodya.Core
         protected IEnumerable<IBootableAsync> _bootablesAsync;
         protected ILoadingPanelService _loadingPanelService;
         protected CompositeDisposable _compositeDisposable;
+        protected string _name;
 
-        [Inject]
+		[Inject]
         public ABaseEntryPoint(
+            string Name,
             ILoadingPanelService loadingPanelService,
             IEnumerable<IBootableAsync> bootableAsyncs)
         {
             _bootablesAsync = bootableAsyncs;
             _loadingPanelService = loadingPanelService;
-        }
+			_name = Name;
+
+		}
 
         public void Dispose()
         {
@@ -32,7 +36,6 @@ namespace Voodya.Core
 
         public virtual async UniTask StartAsync(CancellationToken cancellation = default)
         {
-
             _compositeDisposable = new CompositeDisposable();
             foreach (var item in _bootablesAsync)
             {

@@ -21,12 +21,13 @@ namespace Voodya.Core
 
         [Inject]
         public BootstrapEntryPoint(
+            string Name,
             ILoadingPanelService loadingPanelService,
             IEnumerable<IBootableAsync> bootableAsyncs,
             IApplicationScopesService stateMachineService,
             IObjectResolver objectResolver,
             ScriptableStates scriptableStates)
-            : base(loadingPanelService, bootableAsyncs)
+            : base(Name, loadingPanelService, bootableAsyncs)
         {
             _stateMachineService = stateMachineService;
             _objectResolver = objectResolver;

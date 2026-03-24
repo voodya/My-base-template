@@ -15,11 +15,12 @@ namespace Voodya.Core
         private IApplicationScopesService _applicationScopesService;
 
         public MenuEntryPointExample(
-            ILoadingPanelService loadingPanelService,
+            string Name,
+			ILoadingPanelService loadingPanelService,
             IEnumerable<IBootableAsync> bootableAsyncs,
             ISceneManager sceneManager,
             IApplicationScopesService applicationScopesService)
-            : base(loadingPanelService, bootableAsyncs)
+            : base(Name, loadingPanelService, bootableAsyncs)
         {
             _sceneManager = sceneManager;
             _applicationScopesService = applicationScopesService;
@@ -31,10 +32,15 @@ namespace Voodya.Core
             _loadingPanelService.Show();
             await base.StartAsync(cancellation);
             _loadingPanelService.PrintMessage("Voodya arch example!");
-            //await _sceneManager.GetScene<MenuScene>();
 
-            //_loadingPanelService.Hide();
-        }
+			if(await _applicationScopesService.TryAddScope(typeof(NewEntryPoint).Name))
+            {
+
+            }
+			//await _sceneManager.GetScene<MenuScene>();
+
+			//_loadingPanelService.Hide();
+		}
 
     }
 }

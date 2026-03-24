@@ -43,7 +43,7 @@ namespace Voodya.Core
 
         public void Show()
         {
-            _view.MessageText.text = "Load process..";
+            _view.MessageText.SetText("Load process..");
             _view.Show();
         }
 

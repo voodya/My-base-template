@@ -50,7 +50,7 @@ namespace Voodya.Core
                 {
                     installer.Install(builder);
                 }
-                builder.RegisterEntryPoint<T>();
+                builder.RegisterEntryPoint<T>().WithParameter("Name", type.Name);
                 builder.RegisterBuildCallback(c => Debug.Log($"{type.Name} scope created"));
             });
             _disposed = NewScope.Container.Resolve<IEnumerable<IDisposable>>();

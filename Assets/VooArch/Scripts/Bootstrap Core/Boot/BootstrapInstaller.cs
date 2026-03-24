@@ -14,7 +14,7 @@ namespace Voodya.Core
         {
             base.Configure(builder);
             if (SceneManager.GetActiveScene().name == "Bootstrap")
-                builder.RegisterEntryPoint<BootstrapEntryPoint>();
+                builder.RegisterEntryPoint<BootstrapEntryPoint>().WithParameter("Name", typeof(BootstrapEntryPoint).Name);
         }
     }
 }

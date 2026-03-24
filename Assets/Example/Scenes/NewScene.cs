@@ -1,17 +1,12 @@
+using System;
+using UniRx;
 using UnityEngine;
+using UnityEngine.UI;
 using Voodya.Core;
 
 public class NewScene : ABaseScene
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
+    [SerializeField] private Button _close;
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public IObservable<Unit> OnClose => _close.OnClickAsObservable();
 }
