@@ -10,7 +10,8 @@ namespace Voodya.Core
         T Resolve<T>();
         void SetResolver(IObjectResolver resolver);
         bool TryResolve<T>(out T data);
-    }
+		void Inject(object instance);
+	}
 
     [Service(typeof(ContainerHolderInstaller))]
     public class ContainerHolderService : IContainerHolder
@@ -31,7 +32,12 @@ namespace Voodya.Core
         {
             return _objectResolver.Resolve<T>();
         }
-    }
+
+		public void Inject(object instance)
+		{
+			_objectResolver.Inject(instance);
+		}
+	}
 
 }
 
