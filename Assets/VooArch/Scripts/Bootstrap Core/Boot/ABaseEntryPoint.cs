@@ -39,11 +39,14 @@ namespace Voodya.Core
             _compositeDisposable = new CompositeDisposable();
             foreach (var item in _bootablesAsync)
             {
+                if (item.IsBooted) continue;
                 try
                 {
                     _loadingPanelService.PrintMessage($"Load {item.GetType()}");
                     await item.Boot();
-                }
+                    item.IsBooted = true;
+
+				}
                 catch (Exception e)
                 {
                     Debug.LogError($"Somthing wrong in {item.GetType()} {e}");
