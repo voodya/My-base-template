@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using UniRx;
 using UnityEngine;
+using System.Linq;
+
 #if HAS_VOODYA
 using Cysharp.Threading.Tasks;
 using VContainer;
@@ -37,7 +39,9 @@ namespace Voodya.Core
         public virtual async UniTask StartAsync(CancellationToken cancellation = default)
         {
             _compositeDisposable = new CompositeDisposable();
-            foreach (var item in _bootablesAsync)
+			_bootablesAsync = _bootablesAsync.OrderBy(x => x.Priority);
+
+			foreach (var item in _bootablesAsync)
             {
                 if (item.IsBooted) continue;
                 try
