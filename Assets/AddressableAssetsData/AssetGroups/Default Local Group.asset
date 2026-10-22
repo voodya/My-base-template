@@ -20,6 +20,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ff51663fd56e1aa4598321f354837e49
+    m_Address: Assets/Scenes/New Scene.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 473aa917fed0459ba1bd4e4fcfb7dbea
+    m_Address: Assets/Example/Clicker/ClickerScene.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 926ba3f6945acec4ab6ce8192c5dbe67, type: 2}
   m_SchemaSet:

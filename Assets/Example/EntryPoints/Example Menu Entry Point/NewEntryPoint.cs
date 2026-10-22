@@ -34,10 +34,14 @@ public class NewEntryPoint : ABaseEntryPoint
 			// Do something with scene
 			scene.OnClose.Subscribe(_ =>
 			{
-				_applicationScopesService.DirectrlyCloseAdittionalScope(_name);
+				_applicationScopesService.DirectrlyCloseAdittionalScope(_name).Forget();
 				Debug.Log("Close additional state");
-			});
+			}).AddTo(_compositeDisposable);
 
+			// Switch main state: this additional state and the menu are closed, clicker state starts
+			scene.OnOpenClicker
+				.Subscribe(_ => _applicationScopesService.TryChangeScope(nameof(ClickerEntryPoint)).Forget())
+				.AddTo(_compositeDisposable);
 		});
 	}
 

@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Linq;
 
 #if HAS_VOODYA
 using Cysharp.Threading.Tasks;
@@ -14,7 +14,7 @@ namespace Voodya.Core
     {
         void Register<T>(T entryPoint) where T : IABaseState;
 		UniTask<bool> TryAddScope(string scope);
-		void DirectrlyCloseAdittionalScope(string scope);
+		UniTask DirectrlyCloseAdittionalScope(string scope);
 		UniTask<bool> TryChangeScope(string scope);
     }
 
@@ -60,47 +60,75 @@ namespace Voodya.Core
 					}
 					await _currentScope.Exit();
                 }
-                _currentScope = _scopesStr[scope];
-                _currentScope.Enter();
+                _currentScope = null;
+                var newScope = _scopesStr[scope];
+                if (!TryEnter(newScope))
+                    return false;
+                _currentScope = newScope;
                 return true;
             }
             return false;
         }
 
+        private bool TryEnter(IABaseState state)
+        {
+            try
+            {
+                state.Enter();
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                return false;
+            }
+        }
+
 		public async UniTask<bool> TryAddScope(string scope)
 		{
+			if (_currentScope == null)
+			{
+				Debug.LogError($"Can't add additional state {scope}: no current state");
+				return false;
+			}
 			if (_scopesStr.ContainsKey(scope))
 			{
                 var additionalScope = _scopesStr[scope];
-				if (_additionalScopes.ContainsKey(_currentScope))
+				if (_additionalScopes.TryGetValue(_currentScope, out var scopes) && scopes.Contains(additionalScope))
                 {
-                    if(_additionalScopes[_currentScope].Contains(additionalScope))
-                    {
-                        Debug.LogError($"State {additionalScope.CurrentType.Name} already added to {_currentScope.CurrentType.Name}");
-                        return false;
-					}
-                    _additionalScopes[_currentScope].Add(additionalScope);
+                    Debug.LogError($"State {additionalScope.CurrentType.Name} already added to {_currentScope.CurrentType.Name}");
+                    return false;
 				}
-                else
+                if (!TryEnter(additionalScope))
+                    return false;
+
+                if (scopes == null)
                 {
-                    _additionalScopes.Add(_currentScope, new List<IABaseState>() { additionalScope });
+                    scopes = new List<IABaseState>();
+                    _additionalScopes.Add(_currentScope, scopes);
                 }
-                additionalScope.Enter();
+                scopes.Add(additionalScope);
 				return true;
 			}
 			return false;
 		}
 
-		public void DirectrlyCloseAdittionalScope(string scope)
+		public async UniTask DirectrlyCloseAdittionalScope(string scope)
 		{
-			var additionalScope = _scopesStr[scope];
-			if (_additionalScopes.ContainsKey(_currentScope))
+			if (_currentScope == null || !_scopesStr.TryGetValue(scope, out var additionalScope))
 			{
-				if (_additionalScopes[_currentScope].Contains(additionalScope))
-				{
-                    _additionalScopes[_currentScope].First(x => x == additionalScope).Exit();
-				}
+				Debug.LogError($"State {scope} not registered or no current state");
+				return;
 			}
+			if (!_additionalScopes.TryGetValue(_currentScope, out var scopes) || !scopes.Remove(additionalScope))
+			{
+				Debug.LogError($"State {scope} is not added to {_currentScope.CurrentType.Name}");
+				return;
+			}
+			if (scopes.Count == 0)
+				_additionalScopes.Remove(_currentScope);
+
+			await additionalScope.Exit();
 		}
 	}
 

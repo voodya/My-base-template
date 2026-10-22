@@ -22,6 +22,10 @@ MonoBehaviour:
       Value: {fileID: 11400000, guid: b3f7ab3fd7a50234199247df8c643c83, type: 2}
     - Key: ScenesManagerSO
       Value: {fileID: 11400000, guid: 4c53c77afe3361e41bcc8ac0bfd1124d, type: 2}
+    - Key: ProgressServiceInstaller
+      Value: {fileID: 11400000, guid: ea53da824a664d7a9ca6362b4eb38be4, type: 2}
+    - Key: ClickerServiceInstaller
+      Value: {fileID: 11400000, guid: e1ab5bcfa0d54f8db8fa06aa319a1708, type: 2}
   _stringsData:
     _data:
     - Key: BootstrapEntryPoint
@@ -30,15 +34,17 @@ MonoBehaviour:
       - ContainerHolderService
       - LoadingPanelService
       - ScenesManagerService
-    - Key: MenuEntryPoint
+    - Key: MenuEntryPointExample
       Value: []
-    - Key: All installers
+    - Key: NewEntryPoint
       Value: []
   _compositeInstallers:
     _data:
     - Key: BootstrapEntryPoint
       Value: {fileID: 11400000, guid: 05cc615c186e62148b788901b838f1aa, type: 2}
-    - Key: MenuEntryPoint
-      Value: {fileID: 11400000, guid: 60a32a8780db4114a93fca270acf8f1c, type: 2}
     - Key: MenuEntryPointExample
       Value: {fileID: 11400000, guid: af63d3458845b454d9f6e4448a9df2ba, type: 2}
+    - Key: NewEntryPoint
+      Value: {fileID: 11400000, guid: bb43fa9f281695748a24e37a5b394743, type: 2}
+    - Key: ClickerEntryPoint
+      Value: {fileID: 11400000, guid: c61942ee9d474f299033c6dcc74562d6, type: 2}

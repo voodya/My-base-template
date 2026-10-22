@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using UnityEngine;
 #if HAS_VOODYA
 using VContainer;
 #endif
@@ -25,12 +25,12 @@ namespace Voodya.Core
 
         public List<ScriptableInstaller> GetServices(string scope)
         {
-            if (_nawInstallersContainer.ContainsKey(scope))
-                return _nawInstallersContainer[scope]._installers;
-            else
-            {
-                throw new Exception($"No register installers from {scope}");
-            }
+            if (_nawInstallersContainer.TryGetValue(scope, out var composite) && composite != null)
+                return composite._installers;
+
+            // Entry point without own services is valid, but usually means ArchConfigData is out of date
+            Debug.LogWarning($"No composite installer for {scope} in ArchConfigData, scope will be created without services. Open VooArch/Voo arch configure to update config.");
+            return new List<ScriptableInstaller>();
         }
 
     }

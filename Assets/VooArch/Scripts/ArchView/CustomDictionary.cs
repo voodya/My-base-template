@@ -133,6 +133,17 @@ namespace Voodya.Core
             _keys.Add(key);
         }
 
+        public bool Remove(T key)
+        {
+            if (_rawData == null)
+                CreateNewRawData();
+            if (!_rawData.Remove(key))
+                return false;
+            _keys.Remove(key);
+            RegenerateViewData();
+            return true;
+        }
+
         public Dictionary<T, V> GetRawDictionary()
         {
             if (_rawData == null)

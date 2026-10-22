@@ -27,6 +27,7 @@ namespace Voodya.Core
         protected IScopesHolderService _scopesHolderService;
         protected IEnumerable<IDisposable> _disposed;
         protected LifetimeScope NewScope;
+        protected ScopedSceneManager _scopedSceneManager;
         protected Type _currentType = typeof(T);
         public Type CurrentType => _currentType;
 
@@ -42,6 +43,7 @@ namespace Voodya.Core
 
         public virtual void Enter()
         {
+            _scopedSceneManager = new ScopedSceneManager(_sceneManager);
             NewScope = _currentScope.CreateChild<LifetimeScope>(builder =>
             {
                 Type type = typeof(T);
@@ -50,21 +52,32 @@ namespace Voodya.Core
                 {
                     installer.Install(builder);
                 }
+                // Scenes loaded inside this scope are released only with this scope
+                builder.RegisterInstance<ISceneManager>(_scopedSceneManager);
                 builder.RegisterEntryPoint<T>().WithParameter("Name", type.Name);
                 builder.RegisterBuildCallback(c => Debug.Log($"{type.Name} scope created"));
             });
+            // VContainer logs build exceptions from Awake and leaves the scope without container
+            if (NewScope.Container == null)
+            {
+                UnityEngine.Object.Destroy(NewScope.gameObject);
+                NewScope = null;
+                throw new InvalidOperationException($"Failed to build {typeof(T).Name} scope, see previous errors");
+            }
             _disposed = NewScope.Container.Resolve<IEnumerable<IDisposable>>();
-            _containerHolder.SetResolver(NewScope.Container);
+            _containerHolder.PushResolver(NewScope.Container);
         }
         public async virtual UniTask Exit()
         {
+            if (NewScope == null) return;
+            _containerHolder.RemoveResolver(NewScope.Container);
             NewScope.Dispose();
             foreach (var scope in _disposed)
             {
                 scope.Dispose();
             }
 
-            await _sceneManager.ReleaseAllScenes();
+            await _scopedSceneManager.ReleaseAllScenes();
         }
     }
 }

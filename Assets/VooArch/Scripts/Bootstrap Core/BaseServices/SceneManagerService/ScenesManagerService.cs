@@ -27,6 +27,8 @@ namespace Voodya.Core
         void RegisterScene(Type type, string assetReference);
         UniTask ReleaseAllScenes();
         UniTask ReleaseScene<T>() where T : ABaseScene;
+        UniTask ReleaseScene(Type type);
+        bool IsLoaded(Type type);
     }
 
     public class SyncAnimationController
@@ -67,6 +69,7 @@ namespace Voodya.Core
         public ScenesManagerService()
         {
             _registredScenes = new Dictionary<Type, AssetReference>();
+            _registredScenesStrings = new Dictionary<Type, string>();
             _loadedScenes = new Dictionary<Type, (ABaseScene, AsyncOperationHandle<SceneInstance>)>();
             _onDisposeActions = new();
         }
@@ -88,12 +91,32 @@ namespace Voodya.Core
 
         public void RegisterScene(Type type, string assetReference)
         {
-            if (!_registredScenes.ContainsKey(type))
+            if (string.IsNullOrEmpty(assetReference))
+            {
+                Debug.LogError($"{type} address is empty!");
+                return;
+            }
+            if (!_registredScenes.ContainsKey(type) && !_registredScenesStrings.ContainsKey(type))
                 _registredScenesStrings.Add(type, assetReference);
             else
             {
                 Debug.LogError($"{type} already registred");
             }
+        }
+
+        public bool IsLoaded(Type type)
+        {
+            return _loadedScenes.ContainsKey(type);
+        }
+
+        private AsyncOperationHandle<SceneInstance> LoadSceneAsync(Type type)
+        {
+            if (_registredScenes.TryGetValue(type, out var assetReference))
+                return Addressables.LoadSceneAsync(assetReference, LoadSceneMode.Additive);
+            if (_registredScenesStrings.TryGetValue(type, out var address))
+                return Addressables.LoadSceneAsync(address, LoadSceneMode.Additive);
+
+            throw new KeyNotFoundException($"Scene {type} is not registred");
         }
 
         public async UniTask ReleaseAllScenes(List<Type> notReleasedScenes)
@@ -159,8 +182,7 @@ namespace Voodya.Core
             }
             else
             {
-                AsyncOperationHandle<SceneInstance> loadingOperation = Addressables.LoadSceneAsync(_registredScenes[screenType], LoadSceneMode.Additive);
-                //AsyncOperationHandle<SceneInstance> loadingOperations = Addressables.LoadSceneAsync(_registredScenesStrings[screenType], LoadSceneMode.Additive);
+                AsyncOperationHandle<SceneInstance> loadingOperation = LoadSceneAsync(screenType);
 
                 T scene = (await loadingOperation).Scene.GetRoot<T>();
                 _loadedScenes[screenType] = (scene, loadingOperation);
@@ -225,8 +247,7 @@ namespace Voodya.Core
             }
             else
             {
-                AsyncOperationHandle<SceneInstance> loadingOperation = Addressables.LoadSceneAsync(_registredScenes[screenType], LoadSceneMode.Additive);
-                //AsyncOperationHandle<SceneInstance> loadingOperations = Addressables.LoadSceneAsync(_registredScenesStrings[screenType], LoadSceneMode.Additive);
+                AsyncOperationHandle<SceneInstance> loadingOperation = LoadSceneAsync(screenType);
 
                 T scene = (await loadingOperation).Scene.GetRoot<T>();
                 beforeShow?.Invoke(scene);
@@ -242,11 +263,14 @@ namespace Voodya.Core
             }
         }
 
-        public async UniTask ReleaseScene<T>()
+        public UniTask ReleaseScene<T>()
             where T : ABaseScene
         {
-            Type screenType = typeof(T);
+            return ReleaseScene(typeof(T));
+        }
 
+        public async UniTask ReleaseScene(Type screenType)
+        {
             if (_loadedScenes.ContainsKey(screenType))
             {
                 _animationController.RemoveAnimation(_loadedScenes[screenType].Item1.Animation);
@@ -263,6 +287,82 @@ namespace Voodya.Core
 
             ValidateScenes();
 
+        }
+    }
+
+    /// <summary>
+    /// ISceneManager for a single state scope. Delegates to the global manager
+    /// and remembers scenes loaded by this scope, so ReleaseAllScenes
+    /// unloads only them, not scenes of the parent or sibling states.
+    /// </summary>
+    public class ScopedSceneManager : ISceneManager
+    {
+        private readonly ISceneManager _sceneManager;
+        private readonly List<Type> _ownedScenes = new();
+
+        public ScopedSceneManager(ISceneManager sceneManager)
+        {
+            _sceneManager = sceneManager;
+        }
+
+        private async UniTask<T> Track<T>(Func<UniTask<T>> load)
+            where T : ABaseScene
+        {
+            Type type = typeof(T);
+            bool isOwner = !_sceneManager.IsLoaded(type);
+            T scene = await load();
+            if (isOwner && !_ownedScenes.Contains(type))
+                _ownedScenes.Add(type);
+            return scene;
+        }
+
+        public UniTask<T> GetScene<T>(bool hide = false) where T : ABaseScene
+            => Track(() => _sceneManager.GetScene<T>(hide));
+
+        public UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action onDispose = null) where T : ABaseScene
+            => Track(() => _sceneManager.GetScene<T>(hide, beforeShow, afterShow, onDispose));
+
+        public UniTask<T> GetScene<T>() where T : ABaseScene
+            => Track(() => _sceneManager.GetScene<T>());
+
+        public UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose) where T : ABaseScene
+            => Track(() => _sceneManager.GetSceneWithActions<T>(beforeShow, afterShow, onDispose));
+
+        public UniTask<T> GetSceneWithAfterAction<T>(Action<T> afterShow) where T : ABaseScene
+            => Track(() => _sceneManager.GetSceneWithAfterAction<T>(afterShow));
+
+        public UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow) where T : ABaseScene
+            => Track(() => _sceneManager.GetSceneWithBeforeAction<T>(beforeShow));
+
+        public UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose) where T : ABaseScene
+            => Track(() => _sceneManager.GetSceneWithDisposeAction<T>(onDispose));
+
+        public void RegisterScene(Type type, AssetReference assetReference)
+            => _sceneManager.RegisterScene(type, assetReference);
+
+        public void RegisterScene(Type type, string assetReference)
+            => _sceneManager.RegisterScene(type, assetReference);
+
+        public bool IsLoaded(Type type) => _sceneManager.IsLoaded(type);
+
+        public UniTask ReleaseScene<T>() where T : ABaseScene
+            => ReleaseScene(typeof(T));
+
+        public async UniTask ReleaseScene(Type type)
+        {
+            _ownedScenes.Remove(type);
+            await _sceneManager.ReleaseScene(type);
+        }
+
+        public async UniTask ReleaseAllScenes()
+        {
+            var scenes = _ownedScenes.ToList();
+            _ownedScenes.Clear();
+            foreach (var type in scenes)
+            {
+                if (_sceneManager.IsLoaded(type))
+                    await _sceneManager.ReleaseScene(type);
+            }
         }
     }
 

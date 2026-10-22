@@ -1,6 +1,7 @@
 // ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ. НЕ РЕДАКТИРУЙТЕ ЕГО ВРУЧНУЮ.
 ///RAW
 //MenuEntryPointExample
+//ClickerEntryPoint
 //NewEntryPoint
 //BootstrapEntryPoint
 ///RAW
@@ -17,6 +18,7 @@ public class AUTOGEN_EP : ScriptableStates
         _firstStateType = typeof(MenuEntryPointExample);
 
         applicationScopesService.Register(new DefaultState<MenuEntryPointExample>(objectResolver));
+        applicationScopesService.Register(new DefaultState<ClickerEntryPoint>(objectResolver));
         applicationScopesService.Register(new DefaultState<NewEntryPoint>(objectResolver));
     }
 }
