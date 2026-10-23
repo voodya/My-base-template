@@ -334,7 +334,8 @@ public class ArchConfigWindow : EditorWindow
 
         if (!_hasFieldsCache.TryGetValue(installer, out bool hasFields))
             _hasFieldsCache[installer] = hasFields = ArchConfigModel.TopLevelProperties(installer).Any();
-        string key = $"{scope.Name}/{installer.GetInstanceID()}";
+        // Asset path is stable across domain reloads and engine versions (GetInstanceID is obsolete in Unity 6.6)
+        string key = $"{scope.Name}/{AssetDatabase.GetAssetPath(installer)}";
         bool expanded = hasFields && _expandedRows.Contains(key);
         var global = _model.GlobalScope;
         bool alsoGlobal = !scope.IsGlobal && global != null && global.Installers.Contains(installer);
