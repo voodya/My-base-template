@@ -79,9 +79,24 @@ namespace Voodya.Core
         {
             _cancellationTokenSource?.Cancel();
             _onceDisposables?.Dispose();
+            DestroyAnimationInstance();
+        }
+
+        protected virtual void OnDestroy()
+        {
+            DestroyAnimationInstance();
+        }
+
+        // Runtime copy of the animation asset is not owned by any scene, so it must be destroyed manually
+        private void DestroyAnimationInstance()
+        {
+            if (_instanceAnim == null) return;
+            _instanceAnim.CancelTweens();
+            Destroy(_instanceAnim);
+            _instanceAnim = null;
         }
     }
 }
 
 
-#endif
+#endif

@@ -9,24 +9,28 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f06c08a9e3964e34a88054883898c4a9, type: 3}
+  m_Script: {fileID: 11500000, guid: 418912c185904bd8992296c2c12811be, type: 3}
   m_Name: ScenesMapping
   m_EditorClassIdentifier: 
-  _newScene:
-    m_AssetGUID: ff51663fd56e1aa4598321f354837e49
-    m_SubObjectName: 
-    m_SubObjectType: 
-    m_SubObjectGUID: 
-    m_EditorAssetChanged: 0
-  _loadingScene:
-    m_AssetGUID: e923d0e48d54d0345b2de32a9ebc6aa7
-    m_SubObjectName: 
-    m_SubObjectType: 
-    m_SubObjectGUID: 
-    m_EditorAssetChanged: 0
-  _clickerScene:
-    m_AssetGUID: 473aa917fed0459ba1bd4e4fcfb7dbea
-    m_SubObjectName: 
-    m_SubObjectType: 
-    m_SubObjectGUID: 
-    m_EditorAssetChanged: 0
+  _scenes:
+  - TypeName: Voodya.Core.LoadingScene, Voodya.Core
+    Scene:
+      m_AssetGUID: e923d0e48d54d0345b2de32a9ebc6aa7
+      m_SubObjectName: 
+      m_SubObjectType: 
+      m_SubObjectGUID: 
+      m_EditorAssetChanged: 0
+  - TypeName: NewScene, Assembly-CSharp
+    Scene:
+      m_AssetGUID: ff51663fd56e1aa4598321f354837e49
+      m_SubObjectName: 
+      m_SubObjectType: 
+      m_SubObjectGUID: 
+      m_EditorAssetChanged: 0
+  - TypeName: ClickerScene, Assembly-CSharp
+    Scene:
+      m_AssetGUID: 473aa917fed0459ba1bd4e4fcfb7dbea
+      m_SubObjectName: 
+      m_SubObjectType: 
+      m_SubObjectGUID: 
+      m_EditorAssetChanged: 0

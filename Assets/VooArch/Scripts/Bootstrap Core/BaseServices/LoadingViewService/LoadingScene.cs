@@ -8,12 +8,7 @@ namespace Voodya.Core
     {
         [field: SerializeField] public TextMeshProUGUI MessageText { get; set; }
 
-        public override void Dispose()
-        {
-            Debug.LogError("Dispose Loading View (nothing to dispose)");
-            base.Dispose();
-        }
     }
 
 }
-#endif
+#endif

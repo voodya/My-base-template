@@ -6,6 +6,11 @@ using VContainer;
 #if HAS_VOODYA
 namespace Voodya.Core
 {
+    /// <summary>
+    /// Service locator over the container of the latest active state.
+    /// Prefer constructor injection, and [Inject] members for objects of scenes loaded via ISceneManager:
+    /// they are injected automatically with the dependencies of the state that loaded the scene.
+    /// </summary>
     public interface IContainerHolder
     {
         T Resolve<T>();
@@ -72,4 +77,4 @@ namespace Voodya.Core
 
 }
 
-#endif
+#endif

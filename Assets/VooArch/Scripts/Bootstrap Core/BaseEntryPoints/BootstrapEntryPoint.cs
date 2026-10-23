@@ -7,13 +7,18 @@ using UnityEngine;
 using Voodya.Core;
 using Cysharp.Threading.Tasks;
 using VContainer;
+using VContainer.Unity;
 #endif
 
 #if HAS_VOODYA
 namespace Voodya.Core
 {
+    /// <summary>
+    /// Root entry point of the app. Unlike state entry points it is started by VContainer
+    /// (IAsyncStartable) from the Bootstrap scene and starts the first state.
+    /// </summary>
     [EntryPoint(true)]
-    public class BootstrapEntryPoint : ABaseEntryPoint
+    public class BootstrapEntryPoint : ABaseEntryPoint, IAsyncStartable
     {
         private IApplicationScopesService _stateMachineService;
         private IObjectResolver _objectResolver;
@@ -42,16 +47,15 @@ namespace Voodya.Core
 
             await base.StartAsync(cancellation);
 
-            if (!await _stateMachineService.TryChangeScope(_scriptableStates.FirstState.Name))
-            {
-                throw new NotImplementedException($"Somthing wrong in {_scriptableStates.FirstState.Name}");
-            }
-            else
-            {
-                Debug.Log($"Load {_scriptableStates.FirstState.Name}");
-                _loadingPanelService.Hide();
-            }
+            var firstState = _scriptableStates.FirstState;
+            if (firstState == null)
+                throw new InvalidOperationException("No states registered. Open VooArch/Voo arch configure and check entry points config.");
 
+            if (!await _stateMachineService.TryChangeScope(firstState.Name))
+                throw new InvalidOperationException($"Failed to start first state {firstState.Name}, see previous errors");
+
+            VooLog.Info($"Started {firstState.Name}");
+            _loadingPanelService.Hide();
         }
     }
 }

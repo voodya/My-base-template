@@ -46,7 +46,7 @@ public class ClickerEntryPoint : ABaseEntryPoint
 
     private void Bind(ClickerScene scene)
     {
-        scene.SetStatus($"Click as many times as you can in {ClickerService.ROUND_DURATION:0} seconds");
+        scene.SetStatus($"Click as many times as you can in {_clicker.RoundDuration:0} seconds");
 
         _clicker.Score.Subscribe(scene.SetScore).AddTo(_compositeDisposable);
         _clicker.TimeLeft.Subscribe(scene.SetTimeLeft).AddTo(_compositeDisposable);
@@ -61,7 +61,7 @@ public class ClickerEntryPoint : ABaseEntryPoint
         scene.OnStart.Subscribe(_ => _clicker.StartRound()).AddTo(_compositeDisposable);
         scene.OnClick.Subscribe(_ => _clicker.Click()).AddTo(_compositeDisposable);
         scene.OnBack
-            .Subscribe(_ => _applicationScopesService.TryChangeScope(nameof(MenuEntryPointExample)).Forget())
+            .Subscribe(_ => _applicationScopesService.TryChangeScope<MenuEntryPointExample>().Forget())
             .AddTo(_compositeDisposable);
     }
 }

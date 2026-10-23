@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using UniRx;
 using UnityEngine;
@@ -18,18 +19,31 @@ public interface IProgressService
 /// Loaded once on bootstrap as IBootableAsync.
 /// </summary>
 [Service(typeof(ProgressServiceInstaller))]
-public class ProgressService : IProgressService, IBootableAsync
+public class ProgressService : IProgressService, IBootableAsync, IDisposable
 {
     private const string BEST_SCORE_KEY = "Example.Clicker.BestScore";
     private const string ROUNDS_KEY = "Example.Clicker.Rounds";
 
     private readonly ReactiveProperty<int> _bestScore = new();
+    private readonly IDisposable _pauseSubscription;
 
     public IReadOnlyReactiveProperty<int> BestScore => _bestScore;
     public int RoundsPlayed { get; private set; }
 
     public bool IsBooted { get; set; }
     public int Priority { get; set; } = 10;
+
+    public ProgressService(IApplicationLifecycle lifecycle)
+    {
+        // Mobile OS can kill a paused app without quit event, so data is flushed on pause
+        _pauseSubscription = lifecycle.OnPause.Where(paused => paused).Subscribe(_ => PlayerPrefs.Save());
+    }
+
+    public void Dispose()
+    {
+        _pauseSubscription.Dispose();
+        _bestScore.Dispose();
+    }
 
     public UniTask Boot()
     {

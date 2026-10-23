@@ -1,7 +1,6 @@
 using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
-using UnityEngine;
 using Voodya.Core;
 using UniRx;
 
@@ -34,13 +33,15 @@ public class NewEntryPoint : ABaseEntryPoint
 			// Do something with scene
 			scene.OnClose.Subscribe(_ =>
 			{
-				_applicationScopesService.DirectrlyCloseAdittionalScope(_name).Forget();
-				Debug.Log("Close additional state");
+				_applicationScopesService.CloseAdditionalScope<NewEntryPoint>().Forget();
+				VooLog.Info("Close additional state");
 			}).AddTo(_compositeDisposable);
 
-			// Switch main state: this additional state and the menu are closed, clicker state starts
+			// Switch main state: this additional state and the menu are closed, clicker state starts.
+			// Round settings come from ClickerServiceInstaller; to override them for one transition pass a payload:
+			// TryChangeScope<ClickerEntryPoint>(new ClickerSettings { RoundDuration = 5f })
 			scene.OnOpenClicker
-				.Subscribe(_ => _applicationScopesService.TryChangeScope(nameof(ClickerEntryPoint)).Forget())
+				.Subscribe(_ => _applicationScopesService.TryChangeScope<ClickerEntryPoint>().Forget())
 				.AddTo(_compositeDisposable);
 		});
 	}

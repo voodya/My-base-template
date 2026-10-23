@@ -11,6 +11,7 @@ public interface IClickerService
     IReadOnlyReactiveProperty<float> TimeLeft { get; }
     IReadOnlyReactiveProperty<bool> IsPlaying { get; }
     IObservable<RoundResult> OnRoundFinished { get; }
+    float RoundDuration { get; }
 
     void StartRound();
     void Click();
@@ -35,11 +36,10 @@ public readonly struct RoundResult
 [Service(typeof(ClickerServiceInstaller))]
 public class ClickerService : IClickerService, IDisposable
 {
-    public const float ROUND_DURATION = 10f;
-
     private readonly IProgressService _progress;
+    private readonly ClickerSettings _settings;
     private readonly ReactiveProperty<int> _score = new();
-    private readonly ReactiveProperty<float> _timeLeft = new(ROUND_DURATION);
+    private readonly ReactiveProperty<float> _timeLeft;
     private readonly ReactiveProperty<bool> _isPlaying = new();
     private readonly Subject<RoundResult> _onRoundFinished = new();
     private CancellationTokenSource _roundCts;
@@ -49,10 +49,13 @@ public class ClickerService : IClickerService, IDisposable
     public IReadOnlyReactiveProperty<float> TimeLeft => _timeLeft;
     public IReadOnlyReactiveProperty<bool> IsPlaying => _isPlaying;
     public IObservable<RoundResult> OnRoundFinished => _onRoundFinished;
+    public float RoundDuration => _settings.RoundDuration;
 
-    public ClickerService(IProgressService progress)
+    public ClickerService(IProgressService progress, ClickerSettings settings)
     {
         _progress = progress;
+        _settings = settings;
+        _timeLeft = new ReactiveProperty<float>(settings.RoundDuration);
     }
 
     public void StartRound()
@@ -74,7 +77,7 @@ public class ClickerService : IClickerService, IDisposable
     private async UniTaskVoid RunRound(CancellationToken token)
     {
         _isPlaying.Value = true;
-        float endTime = Time.realtimeSinceStartup + ROUND_DURATION;
+        float endTime = Time.realtimeSinceStartup + _settings.RoundDuration;
         try
         {
             while (Time.realtimeSinceStartup < endTime)
@@ -97,7 +100,6 @@ public class ClickerService : IClickerService, IDisposable
 
     public void Dispose()
     {
-        // DefaultState disposes scope disposables twice, so Dispose must be idempotent
         if (_disposed) return;
         _disposed = true;
 

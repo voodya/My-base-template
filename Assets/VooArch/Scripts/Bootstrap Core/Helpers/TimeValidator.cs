@@ -21,10 +21,10 @@ namespace Voodya.Core
         {
             IsFinished = true;
             _delta = DateTime.Now - _satrtTime;
-            Debug.LogError($"Booted at {_delta.TotalMilliseconds}");
+            VooLog.Info($"Booted at {_delta.TotalMilliseconds} ms");
         }
     }
 }
 
 
-#endif
+#endif

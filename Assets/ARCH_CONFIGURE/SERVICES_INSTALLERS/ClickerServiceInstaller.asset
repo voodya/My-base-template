@@ -12,3 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9057289d405428098b26fc9bcfaa2d8, type: 3}
   m_Name: ClickerServiceInstaller
   m_EditorClassIdentifier: 
+  _defaultSettings:
+    RoundDuration: 30

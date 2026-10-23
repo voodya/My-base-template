@@ -29,7 +29,7 @@ namespace Voodya.Core
                 return composite._installers;
 
             // Entry point without own services is valid, but usually means ArchConfigData is out of date
-            Debug.LogWarning($"No composite installer for {scope} in ArchConfigData, scope will be created without services. Open VooArch/Voo arch configure to update config.");
+            VooLog.Warning($"No composite installer for {scope} in ArchConfigData, scope will be created without services. Open VooArch/Voo arch configure to update config.");
             return new List<ScriptableInstaller>();
         }
 
@@ -40,4 +40,4 @@ namespace Voodya.Core
 
 
 
-#endif
+#endif

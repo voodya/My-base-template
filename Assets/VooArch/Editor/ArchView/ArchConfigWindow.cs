@@ -1,75 +1,26 @@
 #if HAS_VOODYA
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
 using Voodya.Core;
 using Object = UnityEngine.Object;
+using ScopeInfo = ArchConfigModel.ScopeInfo;
+using ServiceInfo = ArchConfigModel.ServiceInfo;
 
 /// <summary>
-/// Window for distributing services between application scopes.
-/// Global scope is BootstrapEntryPoint, every other ABaseEntryPoint gets its own child scope.
-/// Source of truth is the CompositeInstaller of each scope; ArchConfigData keeps references to them.
+/// Window for distributing services between application scopes, see ArchConfigModel.
 /// All changes are saved immediately and support Undo.
 /// </summary>
 public class ArchConfigWindow : EditorWindow
 {
-    private const string ROOT_PATH = "Assets/ARCH_CONFIGURE";
-    private const string COMPOSITE_FOLDER = "COMPOSIT_INSTALLERS";
-    private const string SERVICES_FOLDER = "SERVICES_INSTALLERS";
-    private const string CONFIG_NAME = "ArchConfigData.asset";
-    private const string ENTRY_POINTS_CODE = ROOT_PATH + "/AUTOGEN_EP.cs";
-    private const string SCENES_CODE = ROOT_PATH + "/AUTOGEN_SCENES.cs";
-    private const string BOOTSTRAP_SCENE = "Bootstrap";
     private const string DRAG_FROM_KEY = "VooArch.FromScope";
     private const string LEFT_WIDTH_PREF = "VooArch.ConfigWindow.LeftWidth";
     private const string SHOW_ISSUES_PREF = "VooArch.ConfigWindow.ShowIssues";
 
-    private static readonly string GlobalScopeName = nameof(BootstrapEntryPoint);
-
-    private class ServiceInfo
-    {
-        public Type ServiceType;
-        public Type InstallerType;
-        public ScriptableInstaller Installer;
-        public string Error;
-        public string Name => ServiceType.Name;
-    }
-
-    private class ScopeInfo
-    {
-        public string Name;
-        public Type EntryType;
-        public CompositeInstaller Composite;
-        public bool IsGlobal;
-        public bool IsStart;
-        public bool IsRegistered;
-        public bool IsIgnored;
-        public int Priority;
-        public bool IsStale => EntryType == null;
-        public string Title => IsGlobal ? "Global" : Name;
-        public List<ScriptableInstaller> Installers => Composite != null ? Composite._installers : new List<ScriptableInstaller>();
-    }
-
-    private class Issue
-    {
-        public MessageType Type;
-        public string Text;
-        public string FixLabel;
-        public Action Fix;
-    }
-
-    private ArchConfigData _config;
-    private List<ServiceInfo> _services = new();
-    private List<ScopeInfo> _scopes = new();
-    private List<Issue> _issues = new();
-    private Dictionary<Type, ServiceInfo> _serviceByInstallerType = new();
-    private readonly HashSet<Object> _problemInstallers = new();
+    private readonly ArchConfigModel _model = new();
     private readonly Dictionary<Object, SerializedObject> _serializedCache = new();
     private readonly Dictionary<Object, bool> _hasFieldsCache = new();
     private readonly List<Action> _deferred = new();
@@ -87,6 +38,8 @@ public class ArchConfigWindow : EditorWindow
     private bool _pressed;
     private ScriptableInstaller _pressedInstaller;
     private ScopeInfo _pressedFrom;
+
+    private List<ScopeInfo> Scopes => _model.Scopes;
 
     [MenuItem("VooArch/Voo arch configure")]
     public static void ShowWindow()
@@ -108,12 +61,14 @@ public class ArchConfigWindow : EditorWindow
         _leftWidth = EditorPrefs.GetFloat(LEFT_WIDTH_PREF, 260f);
         _showIssues = EditorPrefs.GetBool(SHOW_ISSUES_PREF, true);
         wantsMouseMove = true;
+        _model.Changed += Repaint;
         Undo.undoRedoPerformed += OnUndoRedo;
         Refresh();
     }
 
     private void OnDisable()
     {
+        _model.Changed -= Repaint;
         Undo.undoRedoPerformed -= OnUndoRedo;
         _serializedCache.Clear();
     }
@@ -125,401 +80,16 @@ public class ArchConfigWindow : EditorWindow
 
     private void OnUndoRedo()
     {
-        foreach (var scope in _scopes)
-            if (scope.Composite != null)
-                AssetDatabase.SaveAssetIfDirty(scope.Composite);
-        SaveConfig();
-        BuildIssues();
-        Repaint();
+        _model.SaveDirtyComposites();
     }
-
-    #region Data
 
     private void Refresh()
     {
-        EnsureFolder(ROOT_PATH);
-        EnsureFolder($"{ROOT_PATH}/{COMPOSITE_FOLDER}");
-        EnsureFolder($"{ROOT_PATH}/{SERVICES_FOLDER}");
-
         _serializedCache.Clear();
         _hasFieldsCache.Clear();
-        _config = LoadOrCreateConfig();
-        _config._serviceInstallers ??= new CustomDictionary<string, ScriptableInstaller>(new Dictionary<string, ScriptableInstaller>());
-        _config._compositeInstallers ??= new CustomDictionary<string, CompositeInstaller>(new Dictionary<string, CompositeInstaller>());
-        bool changed = false;
-
-        _services = new List<ServiceInfo>();
-        _serviceByInstallerType = new Dictionary<Type, ServiceInfo>();
-        foreach (var type in TypeCache.GetTypesWithAttribute<ServiceAttribute>().Where(t => t.IsClass && !t.IsAbstract).OrderBy(t => t.Name))
-        {
-            var info = new ServiceInfo { ServiceType = type };
-            try
-            {
-                info.InstallerType = type.GetCustomAttribute<ServiceAttribute>().InstallerType;
-            }
-            catch (Exception e)
-            {
-                info.Error = (e.InnerException ?? e).Message;
-            }
-            if (info.InstallerType != null)
-            {
-                info.Installer = FindOrCreateInstaller(info.InstallerType, ref changed);
-                _serviceByInstallerType[info.InstallerType] = info;
-            }
-            _services.Add(info);
-        }
-
-        string startName = ReadStartState();
-        _scopes = new List<ScopeInfo>();
-        foreach (var type in TypeCache.GetTypesDerivedFrom<ABaseEntryPoint>().Where(t => t.IsClass && !t.IsAbstract))
-        {
-            var attribute = type.GetCustomAttribute<EntryPointAttribute>();
-            var scope = new ScopeInfo
-            {
-                Name = type.Name,
-                EntryType = type,
-                IsGlobal = type.Name == GlobalScopeName,
-                IsRegistered = attribute != null,
-                IsIgnored = attribute?.Ignore ?? false,
-                Priority = attribute?.Priority ?? 100,
-                IsStart = type.Name == startName,
-            };
-            scope.Composite = FindOrCreateComposite(scope.Name, ref changed);
-            _scopes.Add(scope);
-        }
-
-        // Scopes left in config after their entry point class was removed or renamed
-        foreach (var key in _config._compositeInstallers.Keys.ToList())
-        {
-            if (_scopes.Any(s => s.Name == key)) continue;
-            _scopes.Add(new ScopeInfo { Name = key, Composite = _config._compositeInstallers[key], Priority = int.MaxValue });
-        }
-
-        foreach (var scope in _scopes)
-        {
-            if (scope.Composite != null && scope.Composite._installers == null)
-            {
-                scope.Composite._installers = new List<ScriptableInstaller>();
-                EditorUtility.SetDirty(scope.Composite);
-            }
-        }
-
-        _scopes = _scopes
-            .OrderByDescending(s => s.IsGlobal)
-            .ThenBy(s => s.IsStale)
-            .ThenByDescending(s => s.IsStart)
-            .ThenBy(s => s.Priority)
-            .ThenBy(s => s.Name)
-            .ToList();
-
-        if (changed)
-            SaveConfig();
-        BuildIssues();
+        _model.Reload();
         Repaint();
     }
-
-    private ArchConfigData LoadOrCreateConfig()
-    {
-        string path = $"{ROOT_PATH}/{CONFIG_NAME}";
-        var config = AssetDatabase.LoadAssetAtPath<ArchConfigData>(path);
-        if (config != null)
-            return config;
-
-        config = CreateInstance<ArchConfigData>();
-        AssetDatabase.CreateAsset(config, path);
-        return config;
-    }
-
-    private ScriptableInstaller FindOrCreateInstaller(Type installerType, ref bool changed)
-    {
-        string key = installerType.Name;
-        var installer = _config._serviceInstallers[key];
-        if (installer != null && installer.GetType() == installerType)
-            return installer;
-
-        installer = FindAsset(installerType) as ScriptableInstaller;
-        if (installer == null)
-            installer = (ScriptableInstaller)CreateAsset(installerType, $"{ROOT_PATH}/{SERVICES_FOLDER}/{key}.asset");
-
-        _config._serviceInstallers[key] = installer;
-        changed = true;
-        return installer;
-    }
-
-    private CompositeInstaller FindOrCreateComposite(string scopeName, ref bool changed)
-    {
-        var composite = _config._compositeInstallers[scopeName];
-        if (composite != null)
-            return composite;
-
-        string basePath = $"{ROOT_PATH}/{COMPOSITE_FOLDER}/{scopeName}Composite";
-        composite = AssetDatabase.LoadAssetAtPath<CompositeInstaller>(basePath + ".asset");
-        if (composite == null)
-            composite = AssetDatabase.LoadAssetAtPath<CompositeInstaller>(basePath + ".Asset");
-        if (composite == null)
-            composite = (CompositeInstaller)CreateAsset(typeof(CompositeInstaller), basePath + ".asset");
-
-        _config._compositeInstallers[scopeName] = composite;
-        changed = true;
-        return composite;
-    }
-
-    private void SaveConfig()
-    {
-        if (_config == null) return;
-
-        // Service names per scope, kept for backward compatibility with older tools
-        var names = new Dictionary<string, List<string>>();
-        foreach (var scope in _scopes)
-            names[scope.Name] = scope.Installers.Where(i => i != null).Select(DisplayName).ToList();
-        _config._stringsData = new CustomDictionary<string, List<string>>(names);
-
-        EditorUtility.SetDirty(_config);
-        AssetDatabase.SaveAssetIfDirty(_config);
-    }
-
-    private void AddInstaller(ScopeInfo scope, ScriptableInstaller installer)
-    {
-        if (!CanAdd(scope, installer)) return;
-        Undo.RecordObject(scope.Composite, $"Add {DisplayName(installer)} to {scope.Title}");
-        scope.Composite._installers.Add(installer);
-        Commit(scope.Composite);
-    }
-
-    private void RemoveInstaller(ScopeInfo scope, ScriptableInstaller installer)
-    {
-        if (scope.Composite == null || !scope.Composite._installers.Contains(installer)) return;
-        Undo.RecordObject(scope.Composite, $"Remove {DisplayName(installer)} from {scope.Title}");
-        scope.Composite._installers.Remove(installer);
-        Commit(scope.Composite);
-    }
-
-    private void RemoveEmptySlots(ScopeInfo scope)
-    {
-        Undo.RecordObject(scope.Composite, $"Clean {scope.Title}");
-        scope.Composite._installers.RemoveAll(i => i == null);
-        Commit(scope.Composite);
-    }
-
-    private void MoveInstaller(ScopeInfo from, ScopeInfo to, ScriptableInstaller installer)
-    {
-        if (from == null || from == to)
-        {
-            AddInstaller(to, installer);
-            return;
-        }
-        if (!CanAdd(to, installer)) return;
-        Undo.RecordObjects(new Object[] { from.Composite, to.Composite }, $"Move {DisplayName(installer)} to {to.Title}");
-        from.Composite._installers.Remove(installer);
-        to.Composite._installers.Add(installer);
-        Commit(from.Composite, to.Composite);
-    }
-
-    private bool CanAdd(ScopeInfo scope, ScriptableInstaller installer)
-    {
-        return scope?.Composite != null
-            && installer != null
-            && !(installer is ArchConfigData)
-            && _scopes.All(s => s.Composite != installer)
-            && !scope.Composite._installers.Contains(installer);
-    }
-
-    private void Commit(params CompositeInstaller[] composites)
-    {
-        foreach (var composite in composites)
-        {
-            EditorUtility.SetDirty(composite);
-            AssetDatabase.SaveAssetIfDirty(composite);
-        }
-        SaveConfig();
-        BuildIssues();
-        Repaint();
-    }
-
-    private void RemoveStaleScope(ScopeInfo scope)
-    {
-        if (!EditorUtility.DisplayDialog("Remove scope",
-            $"Remove scope '{scope.Name}' from ArchConfigData?\nIts composite installer asset is kept in the project.", "Remove", "Cancel"))
-            return;
-
-        _config._compositeInstallers.Remove(scope.Name);
-        _scopes.Remove(scope);
-        SaveConfig();
-        Refresh();
-    }
-
-    private void GenerateCode()
-    {
-        VooSourceGen.Generate(force: true);
-        AssetDatabase.Refresh();
-        Refresh();
-    }
-
-    private void CreateMappingAsset(Type type, string fileName)
-    {
-        CreateAsset(type, $"{ROOT_PATH}/{fileName}.asset");
-        AssetDatabase.SaveAssets();
-        Refresh();
-    }
-
-    private void PutBootstrapSceneFirst(string path)
-    {
-        var scenes = EditorBuildSettings.scenes.Where(s => s.path != path).ToList();
-        scenes.Insert(0, new EditorBuildSettingsScene(path, true));
-        EditorBuildSettings.scenes = scenes.ToArray();
-        BuildIssues();
-    }
-
-    private void RemoveMissingBuildScenes()
-    {
-        EditorBuildSettings.scenes = EditorBuildSettings.scenes.Where(s => File.Exists(s.path)).ToArray();
-        BuildIssues();
-    }
-
-    #endregion
-
-    #region Issues
-
-    private void BuildIssues()
-    {
-        _issues = new List<Issue>();
-        _problemInstallers.Clear();
-        if (_config == null) return;
-
-        var global = _scopes.FirstOrDefault(s => s.IsGlobal);
-        if (global == null)
-            AddIssue(MessageType.Error, $"{GlobalScopeName} not found, global scope can't be configured.");
-
-        foreach (var service in _services)
-        {
-            if (service.Error != null)
-                AddIssue(MessageType.Error, $"{service.Name}: {service.Error}", "Open script", () => OpenScript(service.ServiceType));
-            else if (service.InstallerType == null)
-                AddIssue(MessageType.Warning, $"{service.Name} has no installer, so it can't be added to a scope. Use [Service(typeof({service.Name}Installer))].",
-                    "Open script", () => OpenScript(service.ServiceType));
-            else if (ScopesOf(service.Installer).Count == 0)
-                AddIssue(MessageType.Info, $"{service.Name} is not used in any scope.");
-        }
-
-        foreach (var scope in _scopes)
-        {
-            if (scope.IsStale)
-            {
-                AddIssue(MessageType.Warning, $"Scope '{scope.Name}' is in config, but its entry point class no longer exists.", "Remove", () => RemoveStaleScope(scope));
-                continue;
-            }
-            if (!scope.IsGlobal && !scope.IsRegistered)
-                AddIssue(MessageType.Warning, $"{scope.Name} has no [EntryPoint] attribute, so it is not registered as an application state.",
-                    "Open script", () => OpenScript(scope.EntryType));
-            if (scope.Composite == null)
-            {
-                AddIssue(MessageType.Error, $"{scope.Title} has no composite installer.", "Refresh", Refresh);
-                continue;
-            }
-            if (scope.Installers.Any(i => i == null))
-                AddIssue(MessageType.Error, $"{scope.Title} has empty installer slots (asset was deleted).", "Clean", () => RemoveEmptySlots(scope));
-            if (!scope.IsGlobal && global != null)
-            {
-                foreach (var installer in scope.Installers.Where(i => i != null && global.Installers.Contains(i)))
-                    AddIssue(MessageType.Warning, $"{DisplayName(installer)} is registered in Global and in {scope.Name}: the scope gets its own instance instead of the global one.");
-            }
-        }
-
-        foreach (var installer in _scopes.SelectMany(s => s.Installers).Where(i => i != null && !(i is CompositeInstaller)).Distinct())
-        {
-            foreach (var property in TopLevelProperties(installer))
-            {
-                if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == null)
-                {
-                    _problemInstallers.Add(installer);
-                    AddIssue(MessageType.Error, $"{DisplayName(installer)}: field '{property.displayName}' is not assigned.", "Select", () => SelectAsset(installer));
-                }
-            }
-        }
-
-        CheckGeneratedCode();
-        CheckMappingAssets();
-        CheckBuildSettings();
-
-        _issues = _issues.OrderBy(i => i.Type == MessageType.Error ? 0 : i.Type == MessageType.Warning ? 1 : 2).ToList();
-    }
-
-    private void CheckGeneratedCode()
-    {
-        string entryCode = File.Exists(ENTRY_POINTS_CODE) ? File.ReadAllText(ENTRY_POINTS_CODE) : null;
-        if (entryCode == null)
-        {
-            AddIssue(MessageType.Error, "AUTOGEN_EP.cs not found, states are not registered.", "Generate", GenerateCode);
-        }
-        else
-        {
-            var missing = _scopes.Where(s => s.IsRegistered && !s.IsIgnored && !entryCode.Contains($"DefaultState<{s.Name}>")).Select(s => s.Name).ToList();
-            if (missing.Count > 0)
-                AddIssue(MessageType.Warning, $"Generated code is outdated, not registered: {string.Join(", ", missing)}.", "Generate", GenerateCode);
-        }
-
-        string scenesCode = File.Exists(SCENES_CODE) ? File.ReadAllText(SCENES_CODE) : "";
-        var missingScenes = TypeCache.GetTypesDerivedFrom<ABaseScene>()
-            .Where(t => !t.IsAbstract && !scenesCode.Contains($"typeof({t.Name})"))
-            .Select(t => t.Name).ToList();
-        if (missingScenes.Count > 0)
-            AddIssue(MessageType.Warning, $"Generated scenes mapping is outdated, missing: {string.Join(", ", missingScenes)}.", "Generate", GenerateCode);
-    }
-
-    private void CheckMappingAssets()
-    {
-        CheckMappingAsset(typeof(ScriptableStates), "EntrysMapping");
-        CheckMappingAsset(typeof(BaseScenesSO), "ScenesMapping");
-
-        foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(BaseScenesSO)}"))
-        {
-            var mapping = AssetDatabase.LoadAssetAtPath<BaseScenesSO>(AssetDatabase.GUIDToAssetPath(guid));
-            if (mapping == null) continue;
-            foreach (var property in TopLevelProperties(mapping))
-            {
-                var assetGuid = property.FindPropertyRelative("m_AssetGUID");
-                if (assetGuid != null && string.IsNullOrEmpty(assetGuid.stringValue))
-                    AddIssue(MessageType.Error, $"{mapping.name}: scene for '{property.displayName}' is not set.", "Select", () => SelectAsset(mapping));
-            }
-        }
-    }
-
-    private void CheckMappingAsset(Type baseType, string fileName)
-    {
-        foreach (var type in TypeCache.GetTypesDerivedFrom(baseType).Where(t => !t.IsAbstract))
-        {
-            if (FindAsset(type) == null)
-                AddIssue(MessageType.Error, $"No {type.Name} asset in the project.", "Create", () => CreateMappingAsset(type, fileName));
-        }
-    }
-
-    private void CheckBuildSettings()
-    {
-        string bootstrapPath = AssetDatabase.FindAssets($"{BOOTSTRAP_SCENE} t:Scene")
-            .Select(AssetDatabase.GUIDToAssetPath)
-            .FirstOrDefault(p => Path.GetFileNameWithoutExtension(p) == BOOTSTRAP_SCENE);
-        if (bootstrapPath == null)
-        {
-            AddIssue(MessageType.Error, $"Scene '{BOOTSTRAP_SCENE}' not found: BootstrapInstaller starts the app only in a scene with this name.");
-        }
-        else
-        {
-            var firstScene = EditorBuildSettings.scenes.FirstOrDefault(s => s.enabled);
-            if (firstScene == null || firstScene.path != bootstrapPath)
-                AddIssue(MessageType.Error, $"'{BOOTSTRAP_SCENE}' must be the first enabled scene in Build Settings.", "Fix", () => PutBootstrapSceneFirst(bootstrapPath));
-        }
-
-        var missing = EditorBuildSettings.scenes.Where(s => !File.Exists(s.path)).Select(s => s.path).ToList();
-        if (missing.Count > 0)
-            AddIssue(MessageType.Warning, $"Build Settings reference missing scenes: {string.Join(", ", missing)}.", "Remove", RemoveMissingBuildScenes);
-    }
-
-    private void AddIssue(MessageType type, string text, string fixLabel = null, Action fix = null)
-    {
-        _issues.Add(new Issue { Type = type, Text = text, FixLabel = fixLabel, Fix = fix });
-    }
-
-    #endregion
 
     #region GUI
 
@@ -535,7 +105,7 @@ public class ArchConfigWindow : EditorWindow
             _pressed = false;
         }
 
-        if (_config == null)
+        if (_model.Config == null)
         {
             EditorGUILayout.HelpBox("Config is not loaded.", MessageType.Warning);
             if (GUILayout.Button("Refresh")) Refresh();
@@ -572,16 +142,16 @@ public class ArchConfigWindow : EditorWindow
         {
             if (GUILayout.Button(new GUIContent(" Refresh", Styles.RefreshIcon.image, "Rescan services and entry points"), EditorStyles.toolbarButton, GUILayout.Width(76)))
                 Defer(Refresh);
-            if (GUILayout.Button(new GUIContent("Generate code", "Regenerate AUTOGEN_EP.cs and AUTOGEN_SCENES.cs"), EditorStyles.toolbarButton, GUILayout.Width(96)))
-                Defer(GenerateCode);
+            if (GUILayout.Button(new GUIContent("Sync configs", "Update entry points and scenes configs from code"), EditorStyles.toolbarButton, GUILayout.Width(90)))
+                Defer(_model.SyncConfigs);
             GUILayout.Space(6);
             _search = GUILayout.TextField(_search, EditorStyles.toolbarSearchField, GUILayout.MaxWidth(240));
             GUILayout.FlexibleSpace();
             if (GUILayout.Button(new GUIContent("Config", "Select ArchConfigData asset"), EditorStyles.toolbarButton))
-                SelectAsset(_config);
+                ArchConfigModel.SelectAsset(_model.Config);
 
-            int problems = _issues.Count(i => i.Type != MessageType.Info);
-            int errors = _issues.Count(i => i.Type == MessageType.Error);
+            int problems = _model.Issues.Count(i => i.Type != MessageType.Info);
+            int errors = _model.Issues.Count(i => i.Type == MessageType.Error);
             var icon = errors > 0 ? Styles.ErrorIcon : problems > 0 ? Styles.WarnIcon : Styles.InfoIcon;
             var content = new GUIContent($" {problems}", icon.image, "Show problems");
             bool show = GUILayout.Toggle(_showIssues, content, EditorStyles.toolbarButton, GUILayout.Width(48));
@@ -600,7 +170,7 @@ public class ArchConfigWindow : EditorWindow
         {
             DrawSectionHeader("Services", "Drag to a scope, right click for actions.\nDrag a row from a scope here to remove it.");
             _servicesScroll = EditorGUILayout.BeginScrollView(_servicesScroll);
-            var visible = _services.Where(s => Matches(s.Name)).ToList();
+            var visible = _model.Services.Where(s => Matches(s.Name)).ToList();
             foreach (var service in visible.Where(s => s.Installer != null))
                 DrawServiceRow(service);
 
@@ -613,7 +183,7 @@ public class ArchConfigWindow : EditorWindow
                     DrawServiceRow(service);
             }
             if (visible.Count == 0)
-                GUILayout.Label(_services.Count == 0 ? "No classes with [Service] attribute" : "Nothing found", EditorStyles.centeredGreyMiniLabel);
+                GUILayout.Label(_model.Services.Count == 0 ? "No classes with [Service] attribute" : "Nothing found", EditorStyles.centeredGreyMiniLabel);
             EditorGUILayout.EndScrollView();
         }
         HandleRemoveDrop(panel.rect);
@@ -621,7 +191,7 @@ public class ArchConfigWindow : EditorWindow
 
     private void DrawServiceRow(ServiceInfo service)
     {
-        var scopes = service.Installer != null ? ScopesOf(service.Installer) : new List<ScopeInfo>();
+        var scopes = service.Installer != null ? _model.ScopesOf(service.Installer) : new List<ScopeInfo>();
         Texture icon = service.Installer == null ? Styles.WarnIcon.image : Styles.ScriptIcon.image;
         string usage = service.Installer == null ? "no installer" : scopes.Count == 0 ? "unused" : string.Join(", ", scopes.Select(s => s.Title));
         string tooltip = service.InstallerType != null ? $"Installer: {service.InstallerType.Name}" : service.Error ?? "No installer";
@@ -667,7 +237,7 @@ public class ArchConfigWindow : EditorWindow
         {
             DrawSectionHeader("Scopes", "Global scope lives for the whole app lifetime.\nOther scopes live while their state is active.");
             _scopesScroll = EditorGUILayout.BeginScrollView(_scopesScroll);
-            foreach (var scope in _scopes)
+            foreach (var scope in Scopes)
                 DrawScopeCard(scope);
             EditorGUILayout.EndScrollView();
         }
@@ -709,9 +279,9 @@ public class ArchConfigWindow : EditorWindow
             int count = scope.Installers.Count;
             GUILayout.Label(count == 1 ? "1 service" : $"{count} services", Styles.Muted);
             if (scope.EntryType != null && IconButton(Styles.ScriptIcon, "Open entry point script"))
-                OpenScript(scope.EntryType);
+                ArchConfigModel.OpenScript(scope.EntryType);
             if (scope.Composite != null && IconButton(Styles.AssetIcon, "Select composite installer asset"))
-                SelectAsset(scope.Composite);
+                ArchConfigModel.SelectAsset(scope.Composite);
             if (scope.Composite != null && !scope.IsStale && IconButton(Styles.PlusIcon, "Add service"))
                 ShowAddMenu(scope);
         }
@@ -728,7 +298,7 @@ public class ArchConfigWindow : EditorWindow
             {
                 EditorGUILayout.HelpBox("Entry point class not found. Restore the class or remove this scope from config.", MessageType.Warning);
                 if (GUILayout.Button("Remove from config", GUILayout.Width(140)))
-                    Defer(() => RemoveStaleScope(scope));
+                    Defer(() => _model.RemoveStaleScope(scope));
             }
             else if (scope.Installers.Count == 0)
             {
@@ -754,21 +324,21 @@ public class ArchConfigWindow : EditorWindow
                 GUILayout.Label(new GUIContent("Missing installer asset", Styles.ErrorIcon.image), Styles.RowLabel);
                 GUILayout.FlexibleSpace();
                 if (IconButton(Styles.MinusIcon, "Remove empty slots"))
-                    Defer(() => RemoveEmptySlots(scope));
+                    Defer(() => _model.RemoveEmptySlots(scope));
             }
             return;
         }
 
-        string name = DisplayName(installer);
+        string name = _model.DisplayName(installer);
         if (!Matches(name) && !Matches(installer.name)) return;
 
         if (!_hasFieldsCache.TryGetValue(installer, out bool hasFields))
-            _hasFieldsCache[installer] = hasFields = TopLevelProperties(installer).Any();
+            _hasFieldsCache[installer] = hasFields = ArchConfigModel.TopLevelProperties(installer).Any();
         string key = $"{scope.Name}/{installer.GetInstanceID()}";
         bool expanded = hasFields && _expandedRows.Contains(key);
-        var global = _scopes.FirstOrDefault(s => s.IsGlobal);
+        var global = _model.GlobalScope;
         bool alsoGlobal = !scope.IsGlobal && global != null && global.Installers.Contains(installer);
-        Texture icon = _problemInstallers.Contains(installer) ? Styles.ErrorIcon.image : Styles.AssetIcon.image;
+        Texture icon = _model.ProblemInstallers.Contains(installer) ? Styles.ErrorIcon.image : Styles.AssetIcon.image;
 
         Rect row = EditorGUILayout.BeginHorizontal(Styles.Row);
         DrawHover(row);
@@ -791,7 +361,7 @@ public class ArchConfigWindow : EditorWindow
         if (IconButton(Styles.MenuIcon, "More actions"))
             ShowInstallerMenu(scope, installer);
         if (IconButton(Styles.MinusIcon, "Remove from scope"))
-            Defer(() => RemoveInstaller(scope, installer));
+            Defer(() => _model.RemoveInstaller(scope, installer));
         EditorGUILayout.EndHorizontal();
 
         HandleRowEvents(row, installer, scope, () => ShowInstallerMenu(scope, installer));
@@ -810,7 +380,7 @@ public class ArchConfigWindow : EditorWindow
 
         using (new EditorGUILayout.VerticalScope(Styles.Inspector))
         {
-            if (ScopesOf(installer).Count > 1)
+            if (_model.ScopesOf(installer).Count > 1)
                 GUILayout.Label("Shared asset: changes affect every scope that uses it", Styles.Muted);
 
             float labelWidth = EditorGUIUtility.labelWidth;
@@ -831,7 +401,7 @@ public class ArchConfigWindow : EditorWindow
                 Defer(() =>
                 {
                     AssetDatabase.SaveAssetIfDirty(installer);
-                    BuildIssues();
+                    _model.BuildIssues();
                 });
             }
             EditorGUIUtility.labelWidth = labelWidth;
@@ -844,15 +414,16 @@ public class ArchConfigWindow : EditorWindow
 
         using (new EditorGUILayout.VerticalScope(Styles.IssuesBox))
         {
-            DrawSectionHeader($"Problems ({_issues.Count(i => i.Type != MessageType.Info)})", "Errors and warnings of the current configuration");
-            if (_issues.Count == 0)
+            var issues = _model.Issues;
+            DrawSectionHeader($"Problems ({issues.Count(i => i.Type != MessageType.Info)})", "Errors fail the build, see VooArch/Validate Config On Build");
+            if (issues.Count == 0)
             {
                 EditorGUILayout.HelpBox("No problems found", MessageType.Info);
                 return;
             }
 
             _issuesScroll = EditorGUILayout.BeginScrollView(_issuesScroll, GUILayout.MaxHeight(160));
-            foreach (var issue in _issues)
+            foreach (var issue in issues)
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -890,6 +461,11 @@ public class ArchConfigWindow : EditorWindow
         return GUILayout.Button(new GUIContent(icon.image, tooltip), Styles.IconButton, GUILayout.Width(20), GUILayout.Height(18));
     }
 
+    private bool Matches(string text)
+    {
+        return string.IsNullOrEmpty(_search) || text.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     #endregion
 
     #region Menus and drag & drop
@@ -899,28 +475,28 @@ public class ArchConfigWindow : EditorWindow
         var menu = new GenericMenu();
         if (service.Installer != null)
         {
-            foreach (var scope in _scopes.Where(s => !s.IsStale && s.Composite != null))
+            foreach (var scope in Scopes.Where(s => !s.IsStale && s.Composite != null))
             {
                 bool contains = scope.Installers.Contains(service.Installer);
                 menu.AddItem(new GUIContent($"Scopes/{scope.Title}"), contains, () =>
                 {
-                    if (contains) RemoveInstaller(scope, service.Installer);
-                    else AddInstaller(scope, service.Installer);
+                    if (contains) _model.RemoveInstaller(scope, service.Installer);
+                    else _model.AddInstaller(scope, service.Installer);
                 });
             }
             menu.AddSeparator("");
-            menu.AddItem(new GUIContent("Select installer asset"), false, () => SelectAsset(service.Installer));
+            menu.AddItem(new GUIContent("Select installer asset"), false, () => ArchConfigModel.SelectAsset(service.Installer));
         }
-        menu.AddItem(new GUIContent("Open service script"), false, () => OpenScript(service.ServiceType));
+        menu.AddItem(new GUIContent("Open service script"), false, () => ArchConfigModel.OpenScript(service.ServiceType));
         if (service.InstallerType != null)
-            menu.AddItem(new GUIContent("Open installer script"), false, () => OpenScript(service.InstallerType));
+            menu.AddItem(new GUIContent("Open installer script"), false, () => ArchConfigModel.OpenScript(service.InstallerType));
         menu.ShowAsContext();
     }
 
     private void ShowInstallerMenu(ScopeInfo scope, ScriptableInstaller installer)
     {
         var menu = new GenericMenu();
-        foreach (var target in _scopes.Where(s => s != scope && !s.IsStale && s.Composite != null))
+        foreach (var target in Scopes.Where(s => s != scope && !s.IsStale && s.Composite != null))
         {
             if (target.Installers.Contains(installer))
             {
@@ -929,36 +505,36 @@ public class ArchConfigWindow : EditorWindow
             }
             else
             {
-                menu.AddItem(new GUIContent($"Move to/{target.Title}"), false, () => MoveInstaller(scope, target, installer));
-                menu.AddItem(new GUIContent($"Copy to/{target.Title}"), false, () => AddInstaller(target, installer));
+                menu.AddItem(new GUIContent($"Move to/{target.Title}"), false, () => _model.MoveInstaller(scope, target, installer));
+                menu.AddItem(new GUIContent($"Copy to/{target.Title}"), false, () => _model.AddInstaller(target, installer));
             }
         }
         menu.AddSeparator("");
-        menu.AddItem(new GUIContent("Select installer asset"), false, () => SelectAsset(installer));
-        var service = ServiceOf(installer);
+        menu.AddItem(new GUIContent("Select installer asset"), false, () => ArchConfigModel.SelectAsset(installer));
+        var service = _model.ServiceOf(installer);
         if (service != null)
-            menu.AddItem(new GUIContent("Open service script"), false, () => OpenScript(service.ServiceType));
-        menu.AddItem(new GUIContent("Open installer script"), false, () => OpenScript(installer.GetType()));
+            menu.AddItem(new GUIContent("Open service script"), false, () => ArchConfigModel.OpenScript(service.ServiceType));
+        menu.AddItem(new GUIContent("Open installer script"), false, () => ArchConfigModel.OpenScript(installer.GetType()));
         menu.AddSeparator("");
-        menu.AddItem(new GUIContent("Remove from scope"), false, () => RemoveInstaller(scope, installer));
+        menu.AddItem(new GUIContent("Remove from scope"), false, () => _model.RemoveInstaller(scope, installer));
         menu.ShowAsContext();
     }
 
     private void ShowAddMenu(ScopeInfo scope)
     {
         var menu = new GenericMenu();
-        var candidates = _services.Where(s => s.Installer != null && !scope.Installers.Contains(s.Installer)).ToList();
-        var unused = candidates.Where(s => ScopesOf(s.Installer).Count == 0).ToList();
+        var candidates = _model.Services.Where(s => s.Installer != null && !scope.Installers.Contains(s.Installer)).ToList();
+        var unused = candidates.Where(s => _model.ScopesOf(s.Installer).Count == 0).ToList();
         var used = candidates.Except(unused).ToList();
 
         foreach (var service in unused)
-            menu.AddItem(new GUIContent(service.Name), false, () => AddInstaller(scope, service.Installer));
+            menu.AddItem(new GUIContent(service.Name), false, () => _model.AddInstaller(scope, service.Installer));
         if (unused.Count > 0 && used.Count > 0)
             menu.AddSeparator("");
         foreach (var service in used)
         {
-            string where = string.Join(", ", ScopesOf(service.Installer).Select(s => s.Title));
-            menu.AddItem(new GUIContent($"{service.Name}   ({where})"), false, () => AddInstaller(scope, service.Installer));
+            string where = string.Join(", ", _model.ScopesOf(service.Installer).Select(s => s.Title));
+            menu.AddItem(new GUIContent($"{service.Name}   ({where})"), false, () => _model.AddInstaller(scope, service.Installer));
         }
         if (candidates.Count == 0)
             menu.AddDisabledItem(new GUIContent("All services are already in this scope"));
@@ -979,7 +555,7 @@ public class ArchConfigWindow : EditorWindow
             case EventType.MouseDown when e.button == 0 && installer != null:
                 if (e.clickCount == 2)
                 {
-                    SelectAsset(installer);
+                    ArchConfigModel.SelectAsset(installer);
                     e.Use();
                     break;
                 }
@@ -992,7 +568,7 @@ public class ArchConfigWindow : EditorWindow
                 DragAndDrop.PrepareStartDrag();
                 DragAndDrop.objectReferences = new Object[] { installer };
                 DragAndDrop.SetGenericData(DRAG_FROM_KEY, from?.Name ?? "");
-                DragAndDrop.StartDrag(DisplayName(installer));
+                DragAndDrop.StartDrag(_model.DisplayName(installer));
                 e.Use();
                 break;
         }
@@ -1012,7 +588,7 @@ public class ArchConfigWindow : EditorWindow
             return;
         }
 
-        var dragged = DragAndDrop.objectReferences.OfType<ScriptableInstaller>().Where(i => CanAdd(scope, i)).ToList();
+        var dragged = DragAndDrop.objectReferences.OfType<ScriptableInstaller>().Where(i => _model.CanAdd(scope, i)).ToList();
         if (dragged.Count == 0)
         {
             DragAndDrop.visualMode = DragAndDropVisualMode.Rejected;
@@ -1037,8 +613,8 @@ public class ArchConfigWindow : EditorWindow
             {
                 foreach (var installer in dragged)
                 {
-                    if (move) MoveInstaller(from, scope, installer);
-                    else AddInstaller(scope, installer);
+                    if (move) _model.MoveInstaller(from, scope, installer);
+                    else _model.AddInstaller(scope, installer);
                 }
             });
         }
@@ -1059,7 +635,7 @@ public class ArchConfigWindow : EditorWindow
         if (e.type == EventType.DragPerform)
         {
             DragAndDrop.AcceptDrag();
-            Defer(() => RemoveInstaller(from, installer));
+            Defer(() => _model.RemoveInstaller(from, installer));
         }
         e.Use();
     }
@@ -1067,97 +643,7 @@ public class ArchConfigWindow : EditorWindow
     private ScopeInfo DraggedFrom()
     {
         string name = DragAndDrop.GetGenericData(DRAG_FROM_KEY) as string;
-        return string.IsNullOrEmpty(name) ? null : _scopes.FirstOrDefault(s => s.Name == name);
-    }
-
-    #endregion
-
-    #region Helpers
-
-    private List<ScopeInfo> ScopesOf(ScriptableInstaller installer)
-    {
-        return _scopes.Where(s => s.Installers.Contains(installer)).ToList();
-    }
-
-    private ServiceInfo ServiceOf(ScriptableInstaller installer)
-    {
-        return installer != null && _serviceByInstallerType.TryGetValue(installer.GetType(), out var service) ? service : null;
-    }
-
-    private string DisplayName(ScriptableInstaller installer)
-    {
-        return ServiceOf(installer)?.Name ?? installer.name;
-    }
-
-    private bool Matches(string text)
-    {
-        return string.IsNullOrEmpty(_search) || text.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static string ReadStartState()
-    {
-        if (!File.Exists(ENTRY_POINTS_CODE)) return null;
-        var match = Regex.Match(File.ReadAllText(ENTRY_POINTS_CODE), @"_firstStateType\s*=\s*typeof\((\w+)\)");
-        return match.Success ? match.Groups[1].Value : null;
-    }
-
-    private static IEnumerable<SerializedProperty> TopLevelProperties(Object target)
-    {
-        var serialized = new SerializedObject(target);
-        var property = serialized.GetIterator();
-        if (!property.NextVisible(true)) yield break;
-        do
-        {
-            if (property.propertyPath != "m_Script")
-                yield return property.Copy();
-        }
-        while (property.NextVisible(false));
-    }
-
-    private static Object FindAsset(Type type)
-    {
-        foreach (var guid in AssetDatabase.FindAssets($"t:{type.Name}"))
-        {
-            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid)))
-                if (asset != null && asset.GetType() == type)
-                    return asset;
-        }
-        return null;
-    }
-
-    private static Object CreateAsset(Type type, string path)
-    {
-        var asset = CreateInstance(type);
-        AssetDatabase.CreateAsset(asset, AssetDatabase.GenerateUniqueAssetPath(path));
-        return asset;
-    }
-
-    private static void EnsureFolder(string path)
-    {
-        if (AssetDatabase.IsValidFolder(path)) return;
-        AssetDatabase.CreateFolder(Path.GetDirectoryName(path).Replace('\\', '/'), Path.GetFileName(path));
-    }
-
-    private static void SelectAsset(Object asset)
-    {
-        if (asset == null) return;
-        Selection.activeObject = asset;
-        EditorGUIUtility.PingObject(asset);
-    }
-
-    private static void OpenScript(Type type)
-    {
-        if (type == null) return;
-        foreach (var guid in AssetDatabase.FindAssets($"{type.Name} t:MonoScript"))
-        {
-            var script = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid));
-            if (script != null && (script.GetClass() == type || script.name == type.Name))
-            {
-                AssetDatabase.OpenAsset(script);
-                return;
-            }
-        }
-        Debug.LogWarning($"Script for {type.Name} not found");
+        return string.IsNullOrEmpty(name) ? null : Scopes.FirstOrDefault(s => s.Name == name);
     }
 
     #endregion

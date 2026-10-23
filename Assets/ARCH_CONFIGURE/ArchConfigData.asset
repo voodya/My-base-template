@@ -26,16 +26,23 @@ MonoBehaviour:
       Value: {fileID: 11400000, guid: ea53da824a664d7a9ca6362b4eb38be4, type: 2}
     - Key: ClickerServiceInstaller
       Value: {fileID: 11400000, guid: e1ab5bcfa0d54f8db8fa06aa319a1708, type: 2}
+    - Key: ApplicationLifecycleInstaller
+      Value: {fileID: 11400000, guid: 2b69be2362cb41d6b3ae595715ddedd4, type: 2}
   _stringsData:
     _data:
     - Key: BootstrapEntryPoint
       Value:
+      - ApplicationLifecycleService
       - ApplicationScopesService
       - ContainerHolderService
       - LoadingPanelService
       - ScenesManagerService
+      - ProgressService
     - Key: MenuEntryPointExample
       Value: []
+    - Key: ClickerEntryPoint
+      Value:
+      - ClickerService
     - Key: NewEntryPoint
       Value: []
   _compositeInstallers:

@@ -28,21 +28,17 @@ namespace Voodya.Core
 
         public override async UniTask StartAsync(CancellationToken cancellation = default)
         {
-            Debug.LogError("Load Example State");
+            VooLog.Info("Load Example State");
             _loadingPanelService.Show();
             await base.StartAsync(cancellation);
             _loadingPanelService.PrintMessage("Voodya arch example!");
 
-			if(await _applicationScopesService.TryAddScope(typeof(NewEntryPoint).Name))
-            {
-
-            }
-			//await _sceneManager.GetScene<MenuScene>();
-
-			//_loadingPanelService.Hide();
+            // Additional state lives on top of this one and is closed together with it
+            await _applicationScopesService.TryAddScope<NewEntryPoint>();
+            _loadingPanelService.Hide();
 		}
 
     }
 }
 
-#endif
+#endif

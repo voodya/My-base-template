@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
-#if HAS_VOODYA  
+#if HAS_VOODYA
 using Cysharp.Threading.Tasks;
+using VContainer;
+using VContainer.Unity;
 
 
 namespace Voodya.Core
@@ -22,7 +25,6 @@ namespace Voodya.Core
         UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow) where T : ABaseScene;
         UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose) where T : ABaseScene;
 
-        //void RegisterScene<T>(AssetReference assetReference) where T : ABaseScene;
         void RegisterScene(Type type, AssetReference assetReference);
         void RegisterScene(Type type, string assetReference);
         UniTask ReleaseAllScenes();
@@ -76,16 +78,16 @@ namespace Voodya.Core
 
         public void RegisterScene(Type type, AssetReference assetReference)
         {
-            if (assetReference.AssetGUID == "")
+            if (assetReference == null || string.IsNullOrEmpty(assetReference.AssetGUID))
             {
-                Debug.LogError($"{type} AssetReference is null!");
+                VooLog.Error($"{type} AssetReference is empty!");
                 return;
             }
-            if (!_registredScenes.ContainsKey(type))
+            if (!_registredScenes.ContainsKey(type) && !_registredScenesStrings.ContainsKey(type))
                 _registredScenes.Add(type, assetReference);
             else
             {
-                Debug.LogError($"{type} already registred");
+                VooLog.Error($"{type} already registred");
             }
         }
 
@@ -93,14 +95,14 @@ namespace Voodya.Core
         {
             if (string.IsNullOrEmpty(assetReference))
             {
-                Debug.LogError($"{type} address is empty!");
+                VooLog.Error($"{type} address is empty!");
                 return;
             }
             if (!_registredScenes.ContainsKey(type) && !_registredScenesStrings.ContainsKey(type))
                 _registredScenesStrings.Add(type, assetReference);
             else
             {
-                Debug.LogError($"{type} already registred");
+                VooLog.Error($"{type} already registred");
             }
         }
 
@@ -121,27 +123,17 @@ namespace Voodya.Core
 
         public async UniTask ReleaseAllScenes(List<Type> notReleasedScenes)
         {
-            foreach (var item in _loadedScenes)
+            foreach (var type in _loadedScenes.Keys.ToList())
             {
-                if (notReleasedScenes.Contains(item.Key))
+                if (notReleasedScenes.Contains(type))
                     continue;
-                await Addressables.UnloadSceneAsync(_loadedScenes[item.Key].Item2);
+                await ReleaseScene(type);
             }
-
-            ValidateScenes();
         }
 
         public async UniTask ReleaseAllScenes()
         {
-            foreach (var item in _loadedScenes)
-            {
-                if (item.Key == typeof(LoadingScene))
-                    continue;
-                if (_onDisposeActions.ContainsKey(item.Key))
-                    _onDisposeActions[item.Key]?.Invoke();
-                await Addressables.UnloadSceneAsync(_loadedScenes[item.Key].Item2);
-            }
-            ValidateScenes();
+            await ReleaseAllScenes(new List<Type> { typeof(LoadingScene) });
         }
 
         private void ValidateScenes()
@@ -158,109 +150,82 @@ namespace Voodya.Core
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
         /// <param name="hide">if true scene has created or getted in hide state</param>
-        /// <returns></returns>
-        public async UniTask<T> GetScene<T>(bool hide = false)
+        public UniTask<T> GetScene<T>(bool hide = false)
             where T : ABaseScene
         {
-
-            Type screenType = typeof(T);
-            if (_loadedScenes.ContainsKey(screenType))
-            {
-                T scene = _loadedScenes[screenType].Item1 as T;
-                if (!hide)
-                {
-                    await scene.Show();
-                }
-                else
-                    scene.SetDefaultState();
-                return scene;
-            }
-            else
-            {
-                AsyncOperationHandle<SceneInstance> loadingOperation = LoadSceneAsync(screenType);
-
-                T scene = (await loadingOperation).Scene.GetRoot<T>();
-                _loadedScenes[screenType] = (scene, loadingOperation);
-                scene.SetAnimationController(_animationController);
-                _animationController.AddAnimation(scene.Animation);
-                if (!hide)
-                    await scene.Show();
-                else
-                    scene.SetDefaultState();
-                return scene;
-            }
+            return GetScene<T>(hide, null, null, null);
         }
 
-        public async UniTask<T> GetScene<T>()
+        public UniTask<T> GetScene<T>()
             where T : ABaseScene
         {
-            return await GetScene<T>(false);
+            return GetScene<T>(false, null, null, null);
         }
 
-        public async UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow)
+        public UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow)
             where T : ABaseScene
         {
-            return await GetScene<T>(false, beforeShow);
+            return GetScene<T>(false, beforeShow, null, null);
         }
 
-        public async UniTask<T> GetSceneWithAfterAction<T>(Action<T> afterShow)
+        public UniTask<T> GetSceneWithAfterAction<T>(Action<T> afterShow)
             where T : ABaseScene
         {
-            return await GetScene<T>(false, null, afterShow);
+            return GetScene<T>(false, null, afterShow, null);
         }
 
-        public async UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose)
+        public UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose)
             where T : ABaseScene
         {
-            return await GetScene<T>(false, null, null, onDispose);
+            return GetScene<T>(false, null, null, onDispose);
         }
 
-        public async UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose)
+        public UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose)
             where T : ABaseScene
         {
-            return await GetScene<T>(false, beforeShow, afterShow, onDispose);
+            return GetScene<T>(false, beforeShow, afterShow, onDispose);
         }
 
         public async UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action onDispose = null)
             where T : ABaseScene
         {
-
             Type screenType = typeof(T);
-            _onDisposeActions[screenType] = onDispose;
-            if (_loadedScenes.ContainsKey(screenType))
+            if (onDispose != null)
+                _onDisposeActions[screenType] = onDispose;
+
+            T scene;
+            if (_loadedScenes.TryGetValue(screenType, out var loaded))
             {
-                T scene = _loadedScenes[screenType].Item1 as T;
+                scene = loaded.Item1 as T;
                 beforeShow?.Invoke(scene);
-                if (!hide)
-                {
-                    await scene.Show();
-                }
-                else
-                    scene.SetDefaultState();
-                afterShow?.Invoke(scene);
-                return scene;
             }
             else
             {
                 AsyncOperationHandle<SceneInstance> loadingOperation = LoadSceneAsync(screenType);
-
-                T scene = (await loadingOperation).Scene.GetRoot<T>();
+                var instance = await loadingOperation;
+                try
+                {
+                    scene = instance.Scene.GetRoot<T>();
+                }
+                catch
+                {
+                    // Scene without a proper root component must not stay loaded
+                    await Addressables.UnloadSceneAsync(loadingOperation);
+                    throw;
+                }
                 beforeShow?.Invoke(scene);
                 _loadedScenes[screenType] = (scene, loadingOperation);
                 scene.SetAnimationController(_animationController);
                 _animationController.AddAnimation(scene.Animation);
-                if (!hide)
-                    await scene.Show();
-                else
-                    scene.SetDefaultState();
-                afterShow?.Invoke(scene);
-                return scene;
             }
+
+            if (!hide)
+                await scene.Show();
+            else
+                scene.SetDefaultState();
+            afterShow?.Invoke(scene);
+            return scene;
         }
 
         public UniTask ReleaseScene<T>()
@@ -271,22 +236,26 @@ namespace Voodya.Core
 
         public async UniTask ReleaseScene(Type screenType)
         {
-            if (_loadedScenes.ContainsKey(screenType))
+            if (!_loadedScenes.TryGetValue(screenType, out var loaded))
             {
-                _animationController.RemoveAnimation(_loadedScenes[screenType].Item1.Animation);
-                await _loadedScenes[screenType].Item1.Hide();
-                _loadedScenes[screenType].Item1.Dispose();
-                if (_onDisposeActions.ContainsKey(screenType))
-                    _onDisposeActions[screenType]?.Invoke();
-
-                await Addressables.UnloadSceneAsync(_loadedScenes[screenType].Item2);
-                _loadedScenes.Remove(screenType);
+                VooLog.Warning($"No instance scene {screenType}");
+                return;
             }
-            else
-                Debug.LogError($"No instance scene {screenType}");
 
+            // Removed before awaiting, so parallel release calls don't unload it twice
+            _loadedScenes.Remove(screenType);
+            var (scene, handle) = loaded;
+            if (scene != null)
+            {
+                _animationController.RemoveAnimation(scene.Animation);
+                await scene.Hide();
+                scene.Dispose();
+            }
+            if (_onDisposeActions.Remove(screenType, out var onDispose))
+                onDispose?.Invoke();
+
+            await Addressables.UnloadSceneAsync(handle);
             ValidateScenes();
-
         }
     }
 
@@ -294,48 +263,80 @@ namespace Voodya.Core
     /// ISceneManager for a single state scope. Delegates to the global manager
     /// and remembers scenes loaded by this scope, so ReleaseAllScenes
     /// unloads only them, not scenes of the parent or sibling states.
+    /// Objects of loaded scenes get [Inject] dependencies from the state scope.
     /// </summary>
     public class ScopedSceneManager : ISceneManager
     {
         private readonly ISceneManager _sceneManager;
+        private readonly CancellationToken _lifetime;
         private readonly List<Type> _ownedScenes = new();
+        private IObjectResolver _resolver;
 
-        public ScopedSceneManager(ISceneManager sceneManager)
+        public ScopedSceneManager(ISceneManager sceneManager, CancellationToken lifetime = default)
         {
             _sceneManager = sceneManager;
+            _lifetime = lifetime;
         }
 
-        private async UniTask<T> Track<T>(Func<UniTask<T>> load)
+        public void SetResolver(IObjectResolver resolver)
+        {
+            _resolver = resolver;
+        }
+
+        private async UniTask<T> Get<T>(bool hide, Action<T> beforeShow, Action<T> afterShow, Action onDispose)
             where T : ABaseScene
         {
+            _lifetime.ThrowIfCancellationRequested();
             Type type = typeof(T);
             bool isOwner = !_sceneManager.IsLoaded(type);
-            T scene = await load();
+
+            T scene = await _sceneManager.GetScene<T>(hide, s =>
+            {
+                if (_lifetime.IsCancellationRequested) return;
+                if (isOwner) InjectScene(s);
+                beforeShow?.Invoke(s);
+            }, afterShow, onDispose);
+
             if (isOwner && !_ownedScenes.Contains(type))
                 _ownedScenes.Add(type);
+
+            if (_lifetime.IsCancellationRequested)
+            {
+                // The state exited while the scene was loading: release it instead of leaking
+                if (isOwner)
+                    await ReleaseScene(type);
+                throw new OperationCanceledException(_lifetime);
+            }
             return scene;
         }
 
+        private void InjectScene(ABaseScene scene)
+        {
+            if (_resolver == null) return;
+            foreach (var root in scene.gameObject.scene.GetRootGameObjects())
+                _resolver.InjectGameObject(root);
+        }
+
         public UniTask<T> GetScene<T>(bool hide = false) where T : ABaseScene
-            => Track(() => _sceneManager.GetScene<T>(hide));
+            => Get<T>(hide, null, null, null);
 
         public UniTask<T> GetScene<T>(bool hide = false, Action<T> beforeShow = null, Action<T> afterShow = null, Action onDispose = null) where T : ABaseScene
-            => Track(() => _sceneManager.GetScene<T>(hide, beforeShow, afterShow, onDispose));
+            => Get(hide, beforeShow, afterShow, onDispose);
 
         public UniTask<T> GetScene<T>() where T : ABaseScene
-            => Track(() => _sceneManager.GetScene<T>());
+            => Get<T>(false, null, null, null);
 
         public UniTask<T> GetSceneWithActions<T>(Action<T> beforeShow, Action<T> afterShow, Action onDispose) where T : ABaseScene
-            => Track(() => _sceneManager.GetSceneWithActions<T>(beforeShow, afterShow, onDispose));
+            => Get(false, beforeShow, afterShow, onDispose);
 
         public UniTask<T> GetSceneWithAfterAction<T>(Action<T> afterShow) where T : ABaseScene
-            => Track(() => _sceneManager.GetSceneWithAfterAction<T>(afterShow));
+            => Get(false, null, afterShow, null);
 
         public UniTask<T> GetSceneWithBeforeAction<T>(Action<T> beforeShow) where T : ABaseScene
-            => Track(() => _sceneManager.GetSceneWithBeforeAction<T>(beforeShow));
+            => Get(false, beforeShow, null, null);
 
         public UniTask<T> GetSceneWithDisposeAction<T>(Action onDispose) where T : ABaseScene
-            => Track(() => _sceneManager.GetSceneWithDisposeAction<T>(onDispose));
+            => Get<T>(false, null, null, onDispose);
 
         public void RegisterScene(Type type, AssetReference assetReference)
             => _sceneManager.RegisterScene(type, assetReference);
