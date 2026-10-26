@@ -129,6 +129,13 @@ public static class VooConfigSync
 
     private static readonly Dictionary<Assembly, bool> _testAssemblies = new();
 
+    [Serializable]
+    private class AssemblyDefinition
+    {
+        public string[] optionalUnityReferences;
+        public string[] defineConstraints;
+    }
+
     /// <summary>
     /// Types from test assemblies (fake entry points, scenes or services of unit tests)
     /// are loaded in the editor too, but are not part of the app configuration.
@@ -138,8 +145,22 @@ public static class VooConfigSync
         var assembly = type.Assembly;
         if (!_testAssemblies.TryGetValue(assembly, out bool isTest))
         {
-            isTest = assembly.GetReferencedAssemblies()
-                .Any(a => a.Name == "nunit.framework" || a.Name == "UnityEngine.TestRunner");
+            // References to NUnit/TestRunner can also occur in a mixed Assembly-CSharp.
+            // Only exclude assemblies explicitly designated for tests in their asmdef.
+            string path = UnityEditor.Compilation.CompilationPipeline
+                .GetAssemblyDefinitionFilePathFromAssemblyName(assembly.GetName().Name);
+            isTest = false;
+            if (!string.IsNullOrEmpty(path))
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<UnityEditorInternal.AssemblyDefinitionAsset>(path);
+                if (asset != null)
+                {
+                    var definition = JsonUtility.FromJson<AssemblyDefinition>(asset.text);
+                    isTest = definition != null &&
+                        ((definition.optionalUnityReferences?.Contains("TestAssemblies") ?? false) ||
+                         (definition.defineConstraints?.Contains("UNITY_INCLUDE_TESTS") ?? false));
+                }
+            }
             _testAssemblies[assembly] = isTest;
         }
         return isTest;
